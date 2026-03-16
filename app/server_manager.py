@@ -37,14 +37,13 @@ class ServerManager:
             last_seen_at=now,
             started_at=started_at if status == ServerStatus.running else None,
             log_file=log_file,
+            metadata={"claude_bin": workspot.claude_bin},
         )
 
     async def check_auth(self, workspot: Workspot) -> bool:
         runtime = self.runtime_manager.for_workspot(workspot)
-        creds = (
-            "/home/node/.claude/.credentials.json"
-            if workspot.runtime.value == "docker"
-            else "/home/claude-config/.claude/.credentials.json"
+        creds = workspot.env.get("CLAUDE_CREDENTIALS_PATH") or (
+            "/home/node/.claude/.credentials.json" if workspot.runtime.value == "docker" else "/home/claude-config/.claude/.credentials.json"
         )
         result = await runtime.run_shell(workspot, f"test -s {creds} && echo ok")
         return result.returncode == 0 and "ok" in result.stdout
@@ -52,7 +51,7 @@ class ServerManager:
     async def reconcile_server(self, workspot: Workspot) -> ServerRecord:
         runtime = self.runtime_manager.for_workspot(workspot)
         output_file = self.output_file(workspot.name)
-        proc_check = await runtime.run(workspot, ["pgrep", "-f", "claude remote-control"])
+        proc_check = await runtime.run_shell(workspot, "pgrep -af 'claude remote-control'")
         if proc_check.returncode != 0:
             record = self.build_server_record(workspot, status=ServerStatus.stopped, log_file=output_file)
             self.registry.upsert_server(record)
@@ -84,7 +83,7 @@ class ServerManager:
 
     async def workspot_health(self, workspot: Workspot) -> dict:
         runtime = self.runtime_manager.for_workspot(workspot)
-        git_check = await runtime.run(workspot, ["git", "-C", workspot.dir, "rev-parse", "--is-inside-work-tree"])
+        adapter_health = await runtime.health(workspot)
         auth_ok = await self.check_auth(workspot)
         server = await self.reconcile_server(workspot)
         return {
@@ -92,7 +91,12 @@ class ServerManager:
             "runtime": workspot.runtime.value,
             "container": workspot.container,
             "dir": workspot.dir,
-            "git_ok": git_check.returncode == 0,
+            "claude_bin": workspot.claude_bin,
+            "runtime_ok": adapter_health["runtime_ok"],
+            "repo_exists": adapter_health["repo_exists"],
+            "claude_bin_ok": adapter_health["claude_bin_ok"],
+            "git_ok": adapter_health["git_ok"],
+            "runtime_error": adapter_health.get("runtime_error", ""),
             "auth_ok": auth_ok,
             "server_status": server.status.value,
             "server_capacity": workspot.server_capacity,
