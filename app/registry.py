@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from app.models import RegistryState, ServerRecord, SessionRecord
+from app.models import RegistryState, ServerRecord, SessionRecord, SessionStatus
 
 
 class SessionRegistry:
@@ -48,6 +48,59 @@ class SessionRegistry:
         self.save(state)
         return record
 
+    def get_session(self, session_id: str) -> SessionRecord | None:
+        return next((item for item in self.load().sessions if item.id == session_id), None)
+
+    def find_session(
+        self,
+        *,
+        session_id: str | None = None,
+        workspot: str | None = None,
+        label: str | None = None,
+        statuses: set[SessionStatus] | None = None,
+    ) -> SessionRecord | None:
+        candidates = self.load().sessions
+        if session_id:
+            return next((item for item in candidates if item.id == session_id), None)
+        if workspot:
+            candidates = [item for item in candidates if item.workspot == workspot]
+        if label:
+            candidates = [item for item in candidates if item.label == label]
+        if statuses:
+            candidates = [item for item in candidates if item.status in statuses]
+        candidates = sorted(candidates, key=lambda item: item.created_at, reverse=True)
+        return candidates[0] if candidates else None
+
+    def mark_session(
+        self,
+        session_id: str,
+        *,
+        status: SessionStatus | None = None,
+        url: str | None = None,
+        branch: str | None = None,
+        metadata: dict | None = None,
+        source: str | None = None,
+    ) -> SessionRecord | None:
+        state = self.load()
+        now = datetime.now(timezone.utc)
+        for index, session in enumerate(state.sessions):
+            if session.id != session_id:
+                continue
+            updated = session.model_copy(
+                update={
+                    "status": status or session.status,
+                    "url": url if url is not None else session.url,
+                    "branch": branch if branch is not None else session.branch,
+                    "last_seen_at": now,
+                    "source": source or session.source,
+                    "metadata": {**session.metadata, **(metadata or {})},
+                }
+            )
+            state.sessions[index] = updated
+            self.save(state)
+            return updated
+        return None
+
     def list_sessions(self, *, workspot: Optional[str] = None) -> list[SessionRecord]:
         state = self.load()
         sessions = state.sessions
@@ -74,7 +127,7 @@ class SessionHistoryStore:
                 return []
         return []
 
-    def save_session(self, url: str, workspot: str, worktree: str | None = None):
+    def save_session(self, url: str, workspot: str, worktree: str | None = None, label: str | None = None):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         sessions = self.load()
         sessions.insert(0, {
@@ -82,6 +135,7 @@ class SessionHistoryStore:
             "started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "workspot": workspot,
             "worktree": worktree,
+            "label": label,
         })
         sessions = sessions[: self.max_sessions]
         self.path.write_text(json.dumps(sessions, indent=2))

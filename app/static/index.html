@@ -3,663 +3,276 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Claude Launcher">
   <meta name="theme-color" content="#0a0a0a">
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>Claude Launcher</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #0a0a0a;
-      --surface: #111111;
-      --border: #1e1e1e;
-      --text: #e2e2e2;
-      --muted: #555;
-      --green: #22c55e;
-      --red: #ef4444;
-      --accent: #a78bfa;
+      --bg:#0a0a0a; --surface:#111111; --surface-2:#151515; --border:#252525;
+      --text:#e7e7e7; --muted:#7b7b7b; --green:#22c55e; --red:#ef4444; --yellow:#eab308; --accent:#a78bfa;
     }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Inter', sans-serif;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-
-    .card {
-      width: 100%;
-      max-width: 420px;
-      display: flex;
-      flex-direction: column;
-      gap: 32px;
-    }
-
-    .header {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .title {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 22px;
-      font-weight: 500;
-      letter-spacing: -0.5px;
-      color: var(--text);
-    }
-
-    .subtitle {
-      font-size: 13px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 24px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex-shrink: 0;
-      transition: background 0.3s;
-    }
-
-    .dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
-    .dot.green { background: var(--green); }
-    .dot.red { background: var(--red); }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
-
-    .status-text {
-      font-size: 13px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* Workspot selector */
-    .workspot-row {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .workspot-label {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-    }
-
-    .workspot-select-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .workspot-status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex-shrink: 0;
-      transition: background 0.3s;
-    }
-
-    .workspot-status-dot.green { background: var(--green); }
-
-    .workspot-select {
-      flex: 1;
-      padding: 12px 14px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      appearance: none;
-      cursor: pointer;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 14px center;
-      padding-right: 36px;
-    }
-
-    .workspot-select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .kill-btn {
-      padding: 10px 12px;
-      background: transparent;
-      border: 1px solid #3a1a1a;
-      border-radius: 8px;
-      color: var(--red);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: background 0.15s;
-      display: none;
-    }
-
-    .kill-btn.visible { display: block; }
-    .kill-btn:active { background: #1a0a0a; }
-
-    /* Buttons */
-    .btn {
-      width: 100%;
-      min-height: 56px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 15px;
-      font-weight: 500;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-      letter-spacing: 0.3px;
-    }
-
-    .btn:active { background: #1a1a1a; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    .btn.secondary {
-      min-height: 48px;
-      font-size: 13px;
-      color: var(--muted);
-      border-color: transparent;
-      background: transparent;
-    }
-
-    .btn.secondary:active { background: var(--surface); }
-
-    .btn.worktree {
-      min-height: 48px;
-      font-size: 13px;
-      color: var(--accent);
-      border-color: var(--accent);
-      background: transparent;
-      margin-top: 10px;
-    }
-
-    .btn.worktree:active { background: #1a1530; }
-    .btn.worktree:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    /* Session link */
-    .session-link {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .session-label {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-    }
-
-    .session-url {
-      display: flex;
-      align-items: center;
-      width: 100%;
-      min-height: 64px;
-      background: var(--surface);
-      border: 1px solid var(--green);
-      border-radius: 8px;
-      padding: 16px;
-      color: var(--green);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      text-decoration: none;
-      word-break: break-all;
-      line-height: 1.5;
-      transition: background 0.15s;
-    }
-
-    .session-url:active { background: #111; }
-
-    .error-box {
-      background: #1a0a0a;
-      border: 1px solid #3a1a1a;
-      border-radius: 8px;
-      padding: 16px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      color: var(--red);
-      line-height: 1.5;
-    }
-
-    .hidden { display: none !important; }
-
-    .badge-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      padding: 4px 8px;
-      border-radius: 4px;
-      display: inline-block;
-    }
-
-    .badge.muted { color: var(--muted); border: 1px solid var(--border); }
-    .badge.accent { color: var(--accent); border: 1px solid var(--accent); }
-    .badge.workspot { color: var(--muted); border: 1px solid var(--border); }
-
-    /* History */
-    .history-section {
-      width: 100%;
-      max-width: 420px;
-    }
-
-    .history-toggle {
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      cursor: pointer;
-      padding: 0;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .history-toggle:hover { color: var(--text); }
-
-    .history-list {
-      margin-top: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .history-entry {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 12px;
-      text-decoration: none;
-      cursor: pointer;
-      transition: border-color 0.15s;
-    }
-
-    .history-entry:active { border-color: var(--muted); }
-
-    .history-url {
-      flex: 1;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      color: var(--green);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .history-meta {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 3px;
-      flex-shrink: 0;
-    }
-
-    .history-age {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-    }
-
-    .history-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      border-radius: 3px;
-      padding: 1px 5px;
-    }
-
-    .history-badge.workspot { color: var(--muted); border: 1px solid var(--border); }
-    .history-badge.wt { color: var(--accent); border: 1px solid var(--accent); }
-
-    .history-empty {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--muted);
-      text-align: center;
-      padding: 16px 0;
-    }
+    body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100dvh; padding:24px; }
+    .page { width:100%; max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+    .header { display:flex; justify-content:space-between; gap:16px; align-items:flex-end; flex-wrap:wrap; }
+    .title { font-family:'JetBrains Mono',monospace; font-size:28px; }
+    .subtitle, .muted { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; }
+    .status-pill { border:1px solid var(--border); border-radius:999px; padding:8px 12px; background:var(--surface); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap:16px; }
+    .panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:16px; }
+    .panel-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .panel-title { font-family:'JetBrains Mono',monospace; font-size:18px; }
+    .badge-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .badge { border:1px solid var(--border); border-radius:999px; padding:4px 8px; font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--muted); }
+    .badge.green { color:var(--green); border-color:rgba(34,197,94,.5); }
+    .badge.yellow { color:var(--yellow); border-color:rgba(234,179,8,.5); }
+    .badge.red { color:var(--red); border-color:rgba(239,68,68,.5); }
+    .badge.accent { color:var(--accent); border-color:rgba(167,139,250,.5); }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .form-grid .full { grid-column:1 / -1; }
+    label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+    input { width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px; color:var(--text); font-family:'JetBrains Mono',monospace; }
+    input:focus { outline:none; border-color:var(--accent); }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; }
+    button { background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:12px 14px; cursor:pointer; font-family:'JetBrains Mono',monospace; }
+    button.primary { border-color:var(--accent); color:var(--accent); }
+    button.danger { border-color:rgba(239,68,68,.4); color:var(--red); }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .session-list { display:flex; flex-direction:column; gap:10px; }
+    .session-card { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .session-head, .session-meta, .session-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+    .session-name { font-weight:600; }
+    .kv { display:flex; flex-direction:column; gap:4px; min-width:0; }
+    .kv-label { color:var(--muted); font-size:11px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; }
+    .kv-value { font-family:'JetBrains Mono',monospace; font-size:12px; word-break:break-word; }
+    .url { color:var(--green); text-decoration:none; }
+    .empty { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; padding:10px 0; }
+    .message { border-radius:10px; padding:12px 14px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; }
+    .message.info { background:#10151f; border:1px solid #1e2f47; color:#9ec5ff; }
+    .message.error { background:#1a0a0a; border:1px solid #3a1a1a; color:var(--red); }
+    @media (max-width:720px){ .form-grid{ grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="page">
     <div class="header">
-      <div class="title">Claude Launcher</div>
-      <div class="subtitle">devcontainer remote control</div>
+      <div>
+        <div class="title">Claude Launcher</div>
+        <div class="subtitle">multi-session dashboard grouped by workspot</div>
+      </div>
+      <div class="status-pill muted" id="last-refresh">refreshing…</div>
     </div>
 
-    <!-- Idle / Loading -->
-    <div id="state-idle">
-      <div class="workspot-row" style="margin-bottom: 20px;">
-        <div class="workspot-label">environment</div>
-        <div class="workspot-select-row">
-          <div class="workspot-status-dot" id="workspot-dot"></div>
-          <select class="workspot-select" id="workspot-select" onchange="onWorkspotChange()">
-            <!-- populated by JS -->
-          </select>
-          <button class="kill-btn" id="kill-btn" onclick="killSession()">kill</button>
-        </div>
-      </div>
-      <div class="status-row" style="margin-bottom: 20px;">
-        <div class="dot" id="dot"></div>
-        <span class="status-text" id="status-text">ready</span>
-      </div>
-      <button class="btn" id="start-btn" onclick="startSession()">Start Session</button>
-      <button class="btn worktree" id="worktree-btn" onclick="startWorktree()">New Worktree Session</button>
-    </div>
-
-    <!-- Success -->
-    <div id="state-success" class="hidden">
-      <div class="status-row" style="margin-bottom: 20px;">
-        <div class="dot green"></div>
-        <span class="status-text" id="success-label">session ready</span>
-      </div>
-      <div class="session-link">
-        <div class="session-label">open in claude</div>
-        <a id="session-url" class="session-url" href="#" target="_blank" rel="noopener"></a>
-        <div class="badge-row" id="badge-row"></div>
-      </div>
-      <button class="btn secondary" onclick="reset()" style="margin-top: 16px;">Start New Session</button>
-    </div>
-
-    <!-- Error -->
-    <div id="state-error" class="hidden">
-      <div class="status-row" style="margin-bottom: 20px;">
-        <div class="dot red"></div>
-        <span class="status-text">error</span>
-      </div>
-      <div class="error-box" id="error-msg"></div>
-      <button class="btn" onclick="reset()" style="margin-top: 20px;">Try Again</button>
-    </div>
-  </div>
-
-  <!-- Session history -->
-  <div class="history-section" style="margin-top: 32px;">
-    <button class="history-toggle" onclick="toggleHistory()">
-      <span id="history-arrow">▶</span> Recent Sessions
-    </button>
-    <div id="history-list" class="history-list hidden"></div>
+    <div id="message" class="message info" style="display:none"></div>
+    <div id="workspots" class="grid"></div>
   </div>
 
   <script>
-    const dot = document.getElementById('dot');
-    const statusText = document.getElementById('status-text');
-    const startBtn = document.getElementById('start-btn');
-    const worktreeBtn = document.getElementById('worktree-btn');
-    const selectEl = document.getElementById('workspot-select');
-    const workspotDot = document.getElementById('workspot-dot');
-    const killBtn = document.getElementById('kill-btn');
+    const workspotsEl = document.getElementById('workspots');
+    const messageEl = document.getElementById('message');
+    const refreshEl = document.getElementById('last-refresh');
+    let workspots = [];
+    let sessions = [];
+    let refreshTimer = null;
+    let lastSessionFingerprint = '';
 
-    const STORAGE_KEY = 'claude-launcher-workspot';
-    let statusMap = {}; // name -> {running, url}
-
-    // --- Service Worker ---
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
 
-    // --- Workspot init ---
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
 
-    async function initWorkspots() {
-      try {
-        const res = await fetch('/workspots');
-        const workspots = await res.json();
-        const saved = localStorage.getItem(STORAGE_KEY);
-
-        workspots.forEach(ws => {
-          const opt = document.createElement('option');
-          opt.value = ws.name;
-          opt.textContent = ws.name;
-          selectEl.appendChild(opt);
-        });
-
-        if (saved && workspots.find(w => w.name === saved)) {
-          selectEl.value = saved;
-        }
-      } catch {
-        // fallback — leave select empty, backend will error meaningfully
+    function showMessage(text, kind = 'info') {
+      if (!text) {
+        messageEl.style.display = 'none';
+        messageEl.textContent = '';
+        return;
       }
+      messageEl.style.display = 'block';
+      messageEl.className = `message ${kind}`;
+      messageEl.textContent = text;
     }
 
-    function onWorkspotChange() {
-      localStorage.setItem(STORAGE_KEY, selectEl.value);
-      updateWorkspotDot();
+    function badgeForStatus(status) {
+      if (status === 'running') return 'badge green';
+      if (status === 'pending') return 'badge yellow';
+      if (status === 'failed') return 'badge red';
+      return 'badge';
     }
 
-    function selectedWorkspot() {
-      return selectEl.value;
-    }
-
-    function updateWorkspotDot() {
-      const ws = statusMap[selectedWorkspot()];
-      const running = ws?.running ?? false;
-      workspotDot.classList.toggle('green', running);
-      killBtn.classList.toggle('visible', running);
-    }
-
-    async function refreshStatus() {
-      try {
-        const res = await fetch('/status');
-        const statuses = await res.json();
-        statusMap = {};
-        statuses.forEach(s => { statusMap[s.name] = s; });
-        updateWorkspotDot();
-      } catch {}
-    }
-
-    async function killSession() {
-      killBtn.disabled = true;
-      try {
-        await fetch('/kill', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspot: selectedWorkspot() }),
-        });
-        statusMap[selectedWorkspot()] = { running: false, url: null };
-        updateWorkspotDot();
-      } finally {
-        killBtn.disabled = false;
-      }
-    }
-
-    // --- State ---
-
-    function show(stateId) {
-      ['state-idle', 'state-success', 'state-error'].forEach(id => {
-        document.getElementById(id).classList.toggle('hidden', id !== stateId);
+    function groupedSessions() {
+      const grouped = Object.fromEntries(workspots.map(ws => [ws.name, []]));
+      sessions.forEach(session => {
+        if (!grouped[session.workspot]) grouped[session.workspot] = [];
+        grouped[session.workspot].push(session);
       });
+      return grouped;
     }
 
-    function setLoading(loading, label) {
-      startBtn.disabled = loading;
-      worktreeBtn.disabled = loading;
-      selectEl.disabled = loading;
-      startBtn.textContent = loading ? 'Starting...' : 'Start Session';
-      worktreeBtn.textContent = loading ? 'Starting...' : 'New Worktree Session';
-      dot.classList.toggle('pulse', loading);
-      statusText.textContent = loading ? (label || 'connecting...') : 'ready';
+    function render() {
+      const grouped = groupedSessions();
+      workspotsEl.innerHTML = workspots.map(ws => {
+        const wsSessions = grouped[ws.name] || [];
+        return `
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">${escapeHtml(ws.name)}</div>
+                <div class="subtitle">${escapeHtml(ws.runtime)} · ${escapeHtml(ws.dir)}</div>
+              </div>
+              <div class="badge-row">
+                <span class="badge">capacity ${escapeHtml(ws.server_capacity)}</span>
+                ${ws.claude_bin ? `<span class="badge accent">${escapeHtml(ws.claude_bin)}</span>` : ''}
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <label class="full">Existing directory
+                <input id="dir-${escapeHtml(ws.name)}" placeholder="${escapeHtml(ws.dir)}" />
+              </label>
+              <label>Branch (optional)
+                <input id="branch-${escapeHtml(ws.name)}" placeholder="feature/foo" />
+              </label>
+              <label>Label (optional)
+                <input id="label-${escapeHtml(ws.name)}" placeholder="auth bugfix" />
+              </label>
+            </div>
+
+            <div class="actions">
+              <button class="primary" onclick="createSession('${escapeHtml(ws.name)}', false)">Start session</button>
+              <button onclick="createSession('${escapeHtml(ws.name)}', true)">New worktree session</button>
+              <button onclick="refreshData(false)">Refresh</button>
+            </div>
+
+            <div class="session-list">
+              ${wsSessions.length ? wsSessions.map(renderSessionCard).join('') : '<div class="empty">No sessions yet for this workspot.</div>'}
+            </div>
+          </section>
+        `;
+      }).join('');
     }
 
-    function reset() {
-      show('state-idle');
-      setLoading(false);
+    function renderSessionCard(session) {
+      const urlCell = session.url
+        ? `<a class="kv-value url" href="${escapeHtml(session.url)}" target="_blank" rel="noopener">${escapeHtml(session.url)}</a>`
+        : '<span class="kv-value">waiting for URL…</span>';
+      return `
+        <article class="session-card">
+          <div class="session-head">
+            <div class="session-name">${escapeHtml(session.label || session.id)}</div>
+            <div class="badge-row">
+              <span class="${badgeForStatus(session.status)}">${escapeHtml(session.status)}</span>
+              ${session.branch ? `<span class="badge accent">${escapeHtml(session.branch)}</span>` : ''}
+            </div>
+          </div>
+          <div class="session-meta">
+            <div class="kv">
+              <span class="kv-label">URL</span>
+              ${urlCell}
+            </div>
+          </div>
+          <div class="session-meta">
+            <div class="kv">
+              <span class="kv-label">Working dir</span>
+              <span class="kv-value">${escapeHtml(session.working_dir || '')}</span>
+            </div>
+          </div>
+          <div class="session-actions">
+            <div class="subtitle">${escapeHtml(new Date(session.created_at).toLocaleString())}</div>
+            <div class="actions">
+              ${session.url ? `<button onclick="window.open('${escapeHtml(session.url)}', '_blank', 'noopener')">Open</button>` : ''}
+              ${session.url ? `<button onclick="navigator.clipboard.writeText('${escapeHtml(session.url)}')">Copy URL</button>` : ''}
+              <button class="danger" onclick="killSession('${escapeHtml(session.id)}')">Kill</button>
+            </div>
+          </div>
+        </article>
+      `;
     }
 
-    function showSuccess(data) {
-      const urlEl = document.getElementById('session-url');
-      urlEl.href = data.url;
-      urlEl.textContent = data.url;
-
-      const badgeRow = document.getElementById('badge-row');
-      badgeRow.innerHTML = '';
-
-      if (data.workspot) {
-        const b = document.createElement('span');
-        b.className = 'badge workspot';
-        b.textContent = data.workspot;
-        badgeRow.appendChild(b);
-      }
-      if (data.reused) {
-        const b = document.createElement('span');
-        b.className = 'badge muted';
-        b.textContent = 'existing session';
-        badgeRow.appendChild(b);
-      }
-      if (data.worktree) {
-        const b = document.createElement('span');
-        b.className = 'badge accent';
-        b.textContent = data.worktree;
-        badgeRow.appendChild(b);
-      }
-
-      let label = 'session ready';
-      if (data.reused) label = 'reconnected to existing session';
-      else if (data.worktree) label = 'worktree session ready';
-      document.getElementById('success-label').textContent = label;
-
-      show('state-success');
-      loadHistory();
-      refreshStatus();
-    }
-
-    async function startSession() {
-      setLoading(true, 'connecting...');
+    async function createSession(workspot, worktree) {
+      const directory = document.getElementById(`dir-${workspot}`).value.trim();
+      const branch = document.getElementById(`branch-${workspot}`).value.trim();
+      const label = document.getElementById(`label-${workspot}`).value.trim();
+      showMessage(worktree ? 'Starting worktree session…' : 'Starting session…');
       try {
-        const res = await fetch('/start', {
+        const res = await fetch(worktree ? '/start-worktree' : '/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspot: selectedWorkspot() }),
+          body: JSON.stringify({
+            workspot,
+            worktree,
+            directory: directory || null,
+            branch: branch || null,
+            label: label || null,
+          }),
         });
         const data = await res.json();
-        if (data.status === 'ok') {
-          showSuccess(data);
-        } else {
-          document.getElementById('error-msg').textContent = data.message || 'Unknown error';
-          show('state-error');
-        }
-      } catch {
-        document.getElementById('error-msg').textContent = 'Could not reach launcher server.';
-        show('state-error');
-      }
-    }
-
-    async function startWorktree() {
-      setLoading(true, 'creating worktree...');
-      try {
-        const res = await fetch('/start-worktree', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspot: selectedWorkspot() }),
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-          showSuccess(data);
-        } else {
-          document.getElementById('error-msg').textContent = data.message || 'Unknown error';
-          show('state-error');
-        }
-      } catch {
-        document.getElementById('error-msg').textContent = 'Could not reach launcher server.';
-        show('state-error');
-      }
-    }
-
-    // --- History ---
-
-    function timeAgo(isoString) {
-      const diff = Date.now() - new Date(isoString).getTime();
-      const mins = Math.floor(diff / 60000);
-      if (mins < 1) return 'just now';
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      return `${Math.floor(hrs / 24)}d ago`;
-    }
-
-    function truncateUrl(url, maxLen = 32) {
-      return url.length <= maxLen ? url : url.slice(0, maxLen) + '…';
-    }
-
-    let historyOpen = false;
-
-    function toggleHistory() {
-      historyOpen = !historyOpen;
-      document.getElementById('history-arrow').textContent = historyOpen ? '▼' : '▶';
-      document.getElementById('history-list').classList.toggle('hidden', !historyOpen);
-      if (historyOpen) loadHistory();
-    }
-
-    async function loadHistory() {
-      const listEl = document.getElementById('history-list');
-      try {
-        const res = await fetch('/sessions');
-        const sessions = await res.json();
-        if (!sessions.length) {
-          listEl.innerHTML = '<div class="history-empty">no sessions yet</div>';
+        if (data.status !== 'ok') {
+          showMessage(data.message || 'Failed to start session.', 'error');
           return;
         }
-        listEl.innerHTML = sessions.map(s => `
-          <a class="history-entry" href="${s.url}" target="_blank" rel="noopener">
-            <span class="history-url">${truncateUrl(s.url)}</span>
-            <span class="history-meta">
-              <span class="history-age">${timeAgo(s.started_at)}</span>
-              ${s.workspot ? `<span class="history-badge workspot">${s.workspot}</span>` : ''}
-              ${s.worktree ? `<span class="history-badge wt">${s.worktree}</span>` : ''}
-            </span>
-          </a>
-        `).join('');
-      } catch {
-        listEl.innerHTML = '<div class="history-empty">failed to load</div>';
+        if (data.pending_url) {
+          showMessage(data.message || 'Session started and is waiting for URL capture.');
+        } else {
+          showMessage(`Session ready: ${data.session?.label || workspot}`);
+        }
+        await refreshData(true);
+      } catch (error) {
+        showMessage('Could not reach launcher server.', 'error');
       }
     }
 
-    // --- Init ---
-    initWorkspots().then(() => refreshStatus());
-    loadHistory();
-    // Poll status every 10s
-    setInterval(refreshStatus, 10000);
+    async function killSession(sessionId) {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/kill`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status !== 'ok') {
+          showMessage(data.message || 'Failed to kill session.', 'error');
+          return;
+        }
+        showMessage(`Killed session ${sessionId}`);
+        await refreshData(false);
+      } catch {
+        showMessage('Could not kill session.', 'error');
+      }
+    }
+
+    async function refreshData(boostPoll = false) {
+      const [workspotsRes, sessionsRes] = await Promise.all([
+        fetch('/api/workspots'),
+        fetch('/api/sessions'),
+      ]);
+      workspots = await workspotsRes.json();
+      sessions = await sessionsRes.json();
+      refreshEl.textContent = `updated ${new Date().toLocaleTimeString()}`;
+      const fingerprint = JSON.stringify(sessions.map(s => [s.id, s.status, s.url]));
+      if (fingerprint !== lastSessionFingerprint && sessions.some(s => s.url)) {
+        showMessage(`Dashboard refreshed — ${sessions.filter(s => s.url).length} session URL(s) captured.`);
+      }
+      lastSessionFingerprint = fingerprint;
+      render();
+      schedulePoll(boostPoll || sessions.some(s => s.status === 'pending' && !s.url));
+    }
+
+    function schedulePoll(fast) {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => refreshData(false).catch(() => {
+        showMessage('Failed to refresh dashboard.', 'error');
+        schedulePoll(false);
+      }), fast ? 2000 : 10000);
+    }
+
+    refreshData(true).catch(() => showMessage('Failed to load dashboard.', 'error'));
   </script>
 </body>
 </html>

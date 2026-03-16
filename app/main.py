@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import load_config
-from app.models import KillRequest, StartRequest
+from app.hook_ingest import ingest_session_hook
+from app.models import KillRequest, SessionHookPayload, StartRequest
 from app.registry import SessionHistoryStore, SessionRegistry
 from app.runtime import RuntimeManager
 from app.server_manager import ServerManager
@@ -51,6 +52,7 @@ async def list_workspots():
             "runtime": w.runtime.value,
             "container": w.container,
             "dir": w.dir,
+            "claude_bin": w.claude_bin,
             "server_capacity": w.server_capacity,
         }
         for w in config.workspots
@@ -97,7 +99,7 @@ async def get_live_sessions():
 
 @app.get("/api/sessions/{session_id}")
 async def get_session(session_id: str):
-    session = next((item for item in registry.list_sessions() if item.id == session_id), None)
+    session = registry.get_session(session_id)
     if not session:
         return JSONResponse({"status": "error", "message": f"Unknown session '{session_id}'"}, status_code=404)
     return JSONResponse(session.model_dump(mode="json"))
@@ -107,8 +109,14 @@ async def get_session(session_id: str):
 async def get_status():
     results = []
     for workspot in config.workspots:
-        url = await session_manager.existing_session_url(workspot)
-        results.append({"name": workspot.name, "running": url is not None, "url": url})
+        sessions = registry.list_sessions(workspot=workspot.name)
+        live = [s for s in sessions if s.status.value in {"pending", "running"}]
+        results.append({
+            "name": workspot.name,
+            "running": bool(live),
+            "count": len(live),
+            "url": next((s.url for s in live if s.url), None),
+        })
     return JSONResponse(results)
 
 
@@ -124,15 +132,18 @@ async def start_worktree_session(req: StartRequest):
     return JSONResponse(await session_manager.create_session(payload))
 
 
+@app.post("/api/hooks/session-start")
+async def session_start_hook(payload: SessionHookPayload):
+    result = ingest_session_hook(registry=registry, history_store=history_store, payload=payload)
+    status_code = 200 if result.get("status") == "ok" else 404
+    return JSONResponse(result, status_code=status_code)
+
+
 @app.post("/api/sessions/{session_id}/kill")
 async def kill_session_by_id(session_id: str):
-    session = next((item for item in registry.list_sessions() if item.id == session_id), None)
-    if not session:
-        return JSONResponse({"status": "error", "message": f"Unknown session '{session_id}'"}, status_code=404)
-    workspot = config.get_workspot(session.workspot)
-    if not workspot:
-        return JSONResponse({"status": "error", "message": f"Unknown workspot '{session.workspot}'"}, status_code=404)
-    return JSONResponse(await session_manager.kill_workspot(workspot))
+    result = await session_manager.kill_session(session_id)
+    status_code = 200 if result.get("status") == "ok" else 404
+    return JSONResponse(result, status_code=status_code)
 
 
 @app.post("/kill")

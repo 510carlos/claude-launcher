@@ -5,6 +5,7 @@ import re
 import secrets
 import time
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 
 from app.models import SessionRecord, SessionStatus, StartRequest, Workspot
 from app.registry import SessionHistoryStore, SessionRegistry
@@ -31,13 +32,27 @@ class SessionManager:
     def _runtime(self, workspot: Workspot):
         return self.runtime_manager.for_workspot(workspot)
 
+    def output_file(self, session_id: str) -> str:
+        return f"/tmp/claude-rc-session-{session_id}.txt"
+
+    def derive_label(self, workspot: Workspot, *, label: str | None = None, branch: str | None = None, directory: str | None = None) -> str:
+        if label:
+            return label
+        if branch:
+            return branch
+        if directory:
+            name = PurePosixPath(directory).name
+            if name:
+                return name
+        return f"{workspot.name}-{secrets.token_hex(2)}"
+
     async def poll_for_url(self, workspot: Workspot, output_file: str) -> tuple[str | None, str]:
         runtime = self._runtime(workspot)
         deadline = time.monotonic() + self.config.url_capture_timeout
         last_output = ""
         while time.monotonic() < deadline:
             await asyncio.sleep(0.5)
-            result = await runtime.run(workspot, ["cat", output_file])
+            result = await runtime.run_shell(workspot, f"test -f {output_file} && cat {output_file}")
             if result.returncode == 0:
                 last_output = result.stdout.strip()
                 match = re.search(r"https://claude\.ai/code\S+", result.stdout)
@@ -45,33 +60,23 @@ class SessionManager:
                     return match.group(0), last_output
         return None, last_output
 
-    async def existing_session_url(self, workspot: Workspot) -> str | None:
+    async def launch_session(self, workspot: Workspot, session: SessionRecord) -> tuple[bool, str]:
         runtime = self._runtime(workspot)
-        output_file = self.server_manager.output_file(workspot.name)
-        record = await self.server_manager.reconcile_server(workspot)
-        if record.status != SessionStatus.running:
-            return None
-        output = await runtime.run(workspot, ["cat", output_file])
-        if output.returncode == 0:
-            match = re.search(r"https://claude\.ai/code\S+", output.stdout)
-            if match:
-                return match.group(0)
-        await self.server_manager.stop_server(workspot)
-        return None
-
-    async def launch_session(self, workspot: Workspot, working_dir: str, output_file: str) -> tuple[bool, str]:
-        runtime = self._runtime(workspot)
+        env_vars = {
+            "CLAUDE_LAUNCHER_SESSION_ID": session.id,
+            "CLAUDE_LAUNCHER_WORKSPOT": workspot.name,
+            "CLAUDE_LAUNCHER_LABEL": session.label,
+            "CLAUDE_LAUNCHER_BRANCH": session.branch or "",
+            "CLAUDE_LAUNCHER_OUTPUT_FILE": session.output_file or "",
+        }
+        env_prefix = " ".join(f'{key}="{value}"' for key, value in env_vars.items() if value is not None)
         flags = " ".join(
             part
             for part in [self.config.claude_global_flags, workspot.claude_bin, "remote-control", self.config.claude_rc_flags]
             if part
         ).strip()
-        if workspot.runtime.value == "docker":
-            command = f"cd {working_dir} && {flags} 2>&1 | tee {output_file}"
-            result = await runtime.run_shell(workspot, command, detached=True)
-        else:
-            command = f"{flags} 2>&1 | tee {output_file}"
-            result = await runtime.run_shell(workspot, command, cwd=working_dir, detached=True)
+        command = f"{env_prefix} {flags} 2>&1 | tee {session.output_file}".strip()
+        result = await runtime.run_shell(workspot, command, cwd=session.working_dir, detached=True)
 
         if result.returncode != 0:
             err = result.stderr.strip()
@@ -82,18 +87,20 @@ class SessionManager:
         await self.server_manager.ensure_server(workspot)
         return True, ""
 
-    def _session_record(
+    def build_session_record(
         self,
         *,
+        session_id: str,
         workspot: Workspot,
         label: str,
         working_dir: str,
-        url: str,
         branch: str | None = None,
         worktree_path: str | None = None,
+        source: str = "launcher",
     ) -> SessionRecord:
+        now = datetime.now(timezone.utc)
         return SessionRecord(
-            id=secrets.token_urlsafe(8),
+            id=session_id,
             workspot=workspot.name,
             server_key=self.server_manager.server_key(workspot),
             label=label,
@@ -103,12 +110,12 @@ class SessionManager:
             working_dir=working_dir,
             branch=branch,
             worktree_path=worktree_path,
-            url=url,
-            status=SessionStatus.running,
-            created_at=datetime.now(timezone.utc),
-            last_seen_at=datetime.now(timezone.utc),
-            source="launcher",
+            status=SessionStatus.pending,
+            created_at=now,
+            last_seen_at=now,
+            source=source,
             server_session_name=label,
+            output_file=self.output_file(session_id),
         )
 
     async def create_session(self, req: StartRequest) -> dict:
@@ -117,45 +124,53 @@ class SessionManager:
             return {"status": "error", "message": f"Unknown workspot '{req.workspot}'"}
 
         if req.worktree:
-            return await self.create_worktree_session(workspot)
-
-        existing_url = await self.existing_session_url(workspot)
-        if existing_url:
-            return {"status": "ok", "url": existing_url, "reused": True, "workspot": workspot.name}
+            return await self.create_worktree_session(workspot, req)
 
         if not await self.server_manager.check_auth(workspot):
             return {"status": "error", "message": "Claude is not authenticated. Run 'claude' interactively first."}
 
-        output_file = self.server_manager.output_file(workspot.name)
-        await self._runtime(workspot).run_shell(workspot, f"rm -f {output_file}")
+        working_dir = req.directory or workspot.dir
+        label = self.derive_label(workspot, label=req.label, branch=req.branch, directory=working_dir)
+        session_id = secrets.token_urlsafe(8)
+        record = self.build_session_record(
+            session_id=session_id,
+            workspot=workspot,
+            label=label,
+            working_dir=working_dir,
+            branch=req.branch,
+        )
+        self.registry.upsert_session(record)
 
-        ok, err = await self.launch_session(workspot, workspot.dir, output_file)
+        ok, err = await self.launch_session(workspot, record)
         if not ok:
+            self.registry.mark_session(session_id, status=SessionStatus.failed, metadata={"error": err})
             return {"status": "error", "message": err}
 
-        url, last_output = await self.poll_for_url(workspot, output_file)
+        url, last_output = await self.poll_for_url(workspot, record.output_file or "")
         if not url:
-            msg = (
-                f"Timed out. Last output:\n{last_output}"
-                if last_output
-                else "Timed out. No output from claude — check it is installed and authenticated in the container."
-            )
-            return {"status": "error", "message": msg}
+            self.registry.mark_session(session_id, status=SessionStatus.pending, metadata={"last_output": last_output})
+            return {
+                "status": "ok",
+                "session": self.registry.get_session(session_id).model_dump(mode="json"),
+                "pending_url": True,
+                "message": "Session started. Waiting for URL callback or output capture.",
+            }
 
-        self.history_store.save_session(url, workspot=workspot.name)
-        self.registry.upsert_session(self._session_record(workspot=workspot, label=workspot.name, working_dir=workspot.dir, url=url))
-        return {"status": "ok", "url": url, "reused": False, "workspot": workspot.name}
+        updated = self.registry.mark_session(
+            session_id,
+            status=SessionStatus.running,
+            url=url,
+            metadata={"last_output": last_output},
+        )
+        self.history_store.save_session(url, workspot=workspot.name, label=label)
+        return {"status": "ok", "session": updated.model_dump(mode="json"), "url": url, "reused": False, "workspot": workspot.name}
 
-    async def create_worktree_session(self, workspot: Workspot) -> dict:
+    async def create_worktree_session(self, workspot: Workspot, req: StartRequest) -> dict:
         if not await self.server_manager.check_auth(workspot):
             return {"status": "error", "message": "Claude is not authenticated. Run 'claude' interactively first."}
 
-        date_str = datetime.utcnow().strftime("%Y%m%d")
-        hex_suffix = secrets.token_hex(2)
-        branch = f"wt-{date_str}-{hex_suffix}"
+        branch = req.branch or f"wt-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{secrets.token_hex(2)}"
         worktree_path = f"/tmp/claude-worktrees/{branch}"
-        output_file = f"/tmp/claude-rc-wt-{branch}.txt"
-
         git_result = await self._runtime(workspot).run_shell(
             workspot,
             f"git -C {workspot.dir} worktree add -b {branch} {worktree_path} 2>&1",
@@ -166,31 +181,63 @@ class SessionManager:
                 "message": f"Failed to create worktree: {(git_result.stdout + git_result.stderr).strip()}",
             }
 
-        ok, err_msg = await self.launch_session(workspot, worktree_path, output_file)
+        label = self.derive_label(workspot, label=req.label, branch=branch, directory=worktree_path)
+        session_id = secrets.token_urlsafe(8)
+        record = self.build_session_record(
+            session_id=session_id,
+            workspot=workspot,
+            label=label,
+            working_dir=worktree_path,
+            branch=branch,
+            worktree_path=worktree_path,
+        )
+        self.registry.upsert_session(record)
+
+        ok, err_msg = await self.launch_session(workspot, record)
         if not ok:
+            self.registry.mark_session(session_id, status=SessionStatus.failed, metadata={"error": err_msg})
             return {"status": "error", "message": err_msg}
 
-        url, last_output = await self.poll_for_url(workspot, output_file)
+        url, last_output = await self.poll_for_url(workspot, record.output_file or "")
         if not url:
-            msg = (
-                f"Timed out. Last output:\n{last_output}"
-                if last_output
-                else "Timed out. No output from claude — check it is installed and authenticated in the container."
-            )
-            return {"status": "error", "message": msg}
+            self.registry.mark_session(session_id, status=SessionStatus.pending, metadata={"last_output": last_output})
+            return {
+                "status": "ok",
+                "session": self.registry.get_session(session_id).model_dump(mode="json"),
+                "pending_url": True,
+                "message": "Worktree session started. Waiting for URL callback or output capture.",
+            }
 
-        self.history_store.save_session(url, workspot=workspot.name, worktree=branch)
-        self.registry.upsert_session(
-            self._session_record(
-                workspot=workspot,
-                label=branch,
-                working_dir=worktree_path,
-                url=url,
-                branch=branch,
-                worktree_path=worktree_path,
-            )
+        updated = self.registry.mark_session(
+            session_id,
+            status=SessionStatus.running,
+            url=url,
+            branch=branch,
+            metadata={"last_output": last_output},
         )
-        return {"status": "ok", "url": url, "worktree": branch, "reused": False, "workspot": workspot.name}
+        self.history_store.save_session(url, workspot=workspot.name, worktree=branch, label=label)
+        return {
+            "status": "ok",
+            "session": updated.model_dump(mode="json"),
+            "url": url,
+            "worktree": branch,
+            "reused": False,
+            "workspot": workspot.name,
+        }
+
+    async def kill_session(self, session_id: str) -> dict:
+        session = self.registry.get_session(session_id)
+        if not session:
+            return {"status": "error", "message": f"Unknown session '{session_id}'"}
+        workspot = self.config.get_workspot(session.workspot)
+        if not workspot:
+            return {"status": "error", "message": f"Unknown workspot '{session.workspot}'"}
+
+        runtime = self._runtime(workspot)
+        if session.output_file:
+            await runtime.run_shell(workspot, f"rm -f {session.output_file}")
+        self.registry.mark_session(session_id, status=SessionStatus.stopped)
+        return {"status": "ok", "session_id": session_id}
 
     async def kill_workspot(self, workspot: Workspot) -> dict:
         await self.server_manager.stop_server(workspot)

@@ -82,6 +82,7 @@ class SessionRecord(BaseModel):
     last_seen_at: Optional[datetime] = None
     source: str = "launcher"
     server_session_name: Optional[str] = None
+    output_file: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -93,7 +94,21 @@ class RegistryState(BaseModel):
 class StartRequest(BaseModel):
     workspot: str
     worktree: bool = False
+    label: Optional[str] = None
+    branch: Optional[str] = None
+    directory: Optional[str] = None
 
 
 class KillRequest(BaseModel):
     workspot: str
+
+
+class SessionHookPayload(BaseModel):
+    session_id: Optional[str] = None
+    workspot: Optional[str] = None
+    label: Optional[str] = None
+    url: Optional[str] = None
+    branch: Optional[str] = None
+    status: SessionStatus = SessionStatus.running
+    source: str = "hook"
+    metadata: dict[str, Any] = Field(default_factory=dict)
