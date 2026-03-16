@@ -3,203 +3,538 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0a0a">
+  <meta name="theme-color" content="#0f172a">
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>Claude Launcher</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg:#0a0a0a; --surface:#111111; --surface-2:#171717; --surface-3:#1c1c1c; --border:#2a2a2a;
-      --text:#ebebeb; --muted:#9a9a9a; --green:#22c55e; --red:#ef4444; --yellow:#eab308; --accent:#a78bfa;
-      --shadow:0 12px 28px rgba(0,0,0,.28);
-      --radius:18px;
-    }
-    body {
-      background:linear-gradient(180deg, #0a0a0a 0%, #0d0d0d 100%);
-      color:var(--text);
-      font-family:'Inter',sans-serif;
-      min-height:100dvh;
-      padding:18px;
-    }
-    .page { width:100%; max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
-    .header {
-      background:var(--surface);
-      border:1px solid var(--border);
-      border-radius:24px;
-      padding:22px 20px;
-      box-shadow:var(--shadow);
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      flex-wrap:wrap;
-    }
-    .eyebrow, .muted, .meta-text, .subtitle-small {
-      color:var(--muted);
-      font-family:'JetBrains Mono',monospace;
-      font-size:12px;
-    }
-    .title { font-size:32px; font-weight:700; line-height:1.05; }
-    .subtitle { margin-top:8px; color:#d3d3d3; font-size:15px; }
-    .header-status {
-      min-width:140px;
-      border:1px solid var(--border);
-      border-radius:16px;
-      background:var(--surface-2);
-      padding:12px 14px;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
-    .header-status strong { font-size:22px; }
-    .message { border-radius:16px; padding:14px 16px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; }
-    .message.info { background:#10151f; border:1px solid #1e2f47; color:#9ec5ff; }
-    .message.error { background:#1a0a0a; border:1px solid #3a1a1a; color:var(--red); }
-    .workspot-list { display:flex; flex-direction:column; gap:16px; }
-    .panel {
-      background:var(--surface);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow:var(--shadow);
-      display:flex;
-      flex-direction:column;
-      gap:16px;
-    }
-    .panel-head {
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-    .panel-title { font-size:22px; font-weight:700; }
-    .badge-row { display:flex; gap:8px; flex-wrap:wrap; }
-    .badge {
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      border:1px solid var(--border);
-      border-radius:999px;
-      padding:6px 10px;
-      font-size:12px;
-      font-family:'JetBrains Mono',monospace;
-      color:var(--muted);
-      background:rgba(255,255,255,.02);
-    }
-    .badge.green { color:var(--green); border-color:rgba(34,197,94,.45); }
-    .badge.yellow { color:var(--yellow); border-color:rgba(234,179,8,.45); }
-    .badge.red { color:var(--red); border-color:rgba(239,68,68,.45); }
-    .form-card {
-      background:var(--surface-2);
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-    .form-grid { display:grid; grid-template-columns:1.15fr 1fr 1fr auto; gap:10px; align-items:end; }
-    label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
-    input, select, button {
-      min-height:48px;
-      border-radius:14px;
-      border:1px solid var(--border);
-      background:var(--surface-3);
-      color:var(--text);
-      font-size:16px;
-      padding:12px 14px;
-      font-family:inherit;
-    }
-    input, select { width:100%; }
-    input:focus, select:focus { outline:none; border-color:var(--accent); }
-    button {
-      cursor:pointer;
-      font-family:'JetBrains Mono',monospace;
-      font-size:13px;
-      font-weight:500;
-      transition:transform .08s ease, opacity .15s ease, border-color .15s ease;
-    }
-    button:active { transform:scale(.99); }
-    button.primary { border-color:rgba(167,139,250,.55); color:var(--accent); }
-    button.danger { border-color:rgba(239,68,68,.45); color:var(--red); }
-    button.ghost { color:#d8d8d8; }
-    button:disabled { opacity:.45; cursor:not-allowed; }
-    .section-title { font-size:14px; font-weight:600; color:#f3f3f3; }
-    .session-list { display:flex; flex-direction:column; gap:12px; }
-    .session-card {
-      background:var(--surface-2);
-      border:1px solid var(--border);
-      border-radius:16px;
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-    .session-head, .session-footer { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
-    .session-name { font-size:17px; font-weight:600; }
-    .session-grid { display:grid; grid-template-columns: minmax(0, 1.1fr) auto auto; gap:12px; align-items:center; }
-    .kv { min-width:0; display:flex; flex-direction:column; gap:5px; }
-    .kv-label { color:var(--muted); font-size:11px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; }
-    .kv-value { font-family:'JetBrains Mono',monospace; font-size:13px; word-break:break-word; }
-    .url { color:#8ee7ac; text-decoration:none; }
-    .button-row { display:flex; gap:10px; flex-wrap:wrap; }
-    .empty { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; padding:4px 0; }
-    .history-footer { display:flex; justify-content:center; }
-    .toggle-btn { min-width:200px; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
 
-    @media (max-width: 820px) {
-      body { padding:12px; }
-      .title { font-size:28px; }
-      .form-grid { grid-template-columns:1fr; }
-      .session-grid { grid-template-columns:1fr; }
-      .panel, .header { padding:16px; }
-      .header-status { width:100%; }
-      .toggle-btn { width:100%; }
-      button { width:100%; }
-      .button-row { width:100%; }
-      .button-row button { flex:1 1 100%; }
+    :root {
+      --bg: #0b1220;
+      --bg-soft: #111b30;
+      --surface: rgba(15, 23, 42, 0.92);
+      --surface-2: rgba(30, 41, 59, 0.9);
+      --surface-3: rgba(51, 65, 85, 0.55);
+      --border: rgba(148, 163, 184, 0.18);
+      --text: #e5eefc;
+      --muted: #94a3b8;
+      --accent: #60a5fa;
+      --accent-2: #22c55e;
+      --warning: #f59e0b;
+      --danger: #f87171;
+      --shadow: 0 16px 40px rgba(2, 8, 23, 0.34);
+      --radius: 20px;
+      --radius-sm: 16px;
+      --tap: 54px;
+    }
+
+    body {
+      min-height: 100dvh;
+      background:
+        radial-gradient(circle at top, rgba(96, 165, 250, 0.18), transparent 28%),
+        linear-gradient(180deg, #0b1220 0%, #0a1020 100%);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    a { color: inherit; }
+
+    .app {
+      width: min(100%, 1100px);
+      margin: 0 auto;
+      padding: 14px 14px 28px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: rgba(11, 18, 32, 0.82);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      min-width: 0;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .nav-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .nav-link.active {
+      border-color: rgba(96, 165, 250, 0.45);
+      background: rgba(96, 165, 250, 0.18);
+      color: #dcecff;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 7px;
+      border-radius: 999px;
+      background: rgba(96, 165, 250, 0.22);
+      border: 1px solid rgba(96, 165, 250, 0.38);
+      color: #dbeafe;
+      font-size: 0.8rem;
+      font-weight: 800;
+    }
+
+    .page {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .page.active { display: flex; }
+
+    .hero, .panel, .session-card, .workspace-card, .empty, .notice {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .eyebrow {
+      color: #93c5fd;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .hero h1 {
+      margin: 10px 0 8px;
+      font-size: 1.85rem;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.5;
+    }
+
+    .notice {
+      display: none;
+      border-radius: 16px;
+      padding: 14px 16px;
+      font-size: 0.96rem;
+      line-height: 1.45;
+    }
+
+    .notice.info { border-color: rgba(96, 165, 250, 0.32); color: #dbeafe; }
+    .notice.error { border-color: rgba(248, 113, 113, 0.38); color: #fecaca; }
+
+    .workspace-grid,
+    .session-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .workspace-card,
+    .session-card,
+    .panel,
+    .empty {
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .workspace-card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .workspace-header,
+    .session-header,
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .workspace-name,
+    .session-title,
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .workspace-meta,
+    .session-meta,
+    .muted {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .status-pill,
+    .mini-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(15, 23, 42, 0.55);
+      white-space: nowrap;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .status-pill::before {
+      content: '';
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #64748b;
+      box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+    }
+
+    .status-running::before { background: var(--accent-2); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); }
+    .status-pending::before { background: var(--warning); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
+    .status-stopped::before { background: #64748b; }
+    .status-unhealthy::before { background: var(--danger); box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15); }
+
+    .workspace-detail-list,
+    .session-detail-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .detail-row {
+      padding: 12px 13px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .detail-label {
+      margin-bottom: 6px;
+      color: #cbd5e1;
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .detail-value {
+      color: var(--text);
+      font-size: 0.96rem;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .card-actions,
+    .session-actions,
+    .inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button,
+    .button-link {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      min-height: var(--tap);
+      padding: 0 16px;
+      background: rgba(30, 41, 59, 0.85);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.98rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .primary {
+      background: linear-gradient(180deg, rgba(96, 165, 250, 0.26), rgba(59, 130, 246, 0.2));
+      border-color: rgba(96, 165, 250, 0.45);
+    }
+
+    .danger {
+      background: rgba(127, 29, 29, 0.32);
+      border-color: rgba(248, 113, 113, 0.34);
+      color: #fecaca;
+    }
+
+    .ghost {
+      background: rgba(15, 23, 42, 0.45);
+    }
+
+    .inline-form {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(96, 165, 250, 0.2);
+    }
+
+    .inline-form.open { display: flex; }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      color: #cbd5e1;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      min-height: var(--tap);
+      padding: 0 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(30, 41, 59, 0.9);
+      color: var(--text);
+      font: inherit;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: rgba(96, 165, 250, 0.55);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .session-card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .session-link {
+      color: #93c5fd;
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .session-card.pending {
+      border-color: rgba(245, 158, 11, 0.28);
+    }
+
+    .session-card.stopped,
+    .session-card.failed {
+      opacity: 0.7;
+      background: rgba(15, 23, 42, 0.72);
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      border: 2px solid rgba(245, 158, 11, 0.2);
+      border-top-color: var(--warning);
+      animation: spin 0.9s linear infinite;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (min-width: 720px) {
+      .app { padding: 18px 18px 36px; }
+      .workspace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .workspace-detail-list,
+      .session-detail-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (min-width: 980px) {
+      .workspace-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .hero { padding: 24px; }
+      .hero h1 { font-size: 2.25rem; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <header class="header">
-      <div>
-        <div class="eyebrow">Dashboard</div>
-        <div class="title">Claude Launcher</div>
-        <div class="subtitle" id="header-subtitle">0 active sessions across all workspots</div>
+  <div class="app">
+    <nav class="topbar">
+      <div class="brand">
+        <div class="brand-title">Claude Launcher</div>
+        <div class="brand-subtitle" id="nav-summary">Loading launcher status…</div>
       </div>
-      <div class="header-status">
-        <span class="subtitle-small">Last refresh</span>
-        <strong id="last-refresh">—</strong>
-        <span class="muted" id="refresh-note">waiting for data</span>
+      <div class="nav">
+        <a class="nav-link" href="#/" data-route="/">Workspaces</a>
+        <a class="nav-link" href="#/sessions" data-route="/sessions">Sessions <span class="badge" id="sessions-badge">0</span></a>
       </div>
-    </header>
+    </nav>
 
-    <div id="message" class="message info" style="display:none"></div>
-    <div id="workspots" class="workspot-list"></div>
-    <div class="history-footer">
-      <button id="history-toggle" class="ghost toggle-btn" onclick="toggleHistory()">Show History</button>
-    </div>
+    <div id="notice" class="notice info"></div>
+
+    <section id="page-workspaces" class="page active">
+      <div class="hero">
+        <div class="eyebrow">Page 1</div>
+        <h1>Workspaces</h1>
+        <p>Pick a workspace, add an optional label or branch, then start a session. Clean and fast on desktop or phone.</p>
+      </div>
+      <div id="workspace-grid" class="workspace-grid"></div>
+    </section>
+
+    <section id="page-sessions" class="page">
+      <div class="hero">
+        <div class="eyebrow">Page 2</div>
+        <h1>Sessions</h1>
+        <p>Running sessions stay at the top, pending sessions show progress, and old sessions sink to the bottom for cleanup.</p>
+      </div>
+
+      <div class="inline-actions">
+        <button type="button" class="ghost" id="back-button">← Back to Workspaces</button>
+      </div>
+
+      <div class="panel">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Running</div>
+            <div class="muted">Live sessions with links and quick kill actions.</div>
+          </div>
+          <span class="mini-pill" id="running-count">0</span>
+        </div>
+        <div id="running-list" class="session-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Pending</div>
+            <div class="muted">Waiting for the launcher to finish bringing things up.</div>
+          </div>
+          <span class="mini-pill" id="pending-count">0</span>
+        </div>
+        <div id="pending-list" class="session-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Stopped / Failed</div>
+            <div class="muted">Older sessions, grayed out, ready to delete.</div>
+          </div>
+          <span class="mini-pill" id="ended-count">0</span>
+        </div>
+        <div id="ended-list" class="session-list"></div>
+      </div>
+    </section>
   </div>
 
   <script>
-    const workspotsEl = document.getElementById('workspots');
-    const messageEl = document.getElementById('message');
-    const refreshEl = document.getElementById('last-refresh');
-    const refreshNoteEl = document.getElementById('refresh-note');
-    const headerSubtitleEl = document.getElementById('header-subtitle');
-    const historyToggleEl = document.getElementById('history-toggle');
+    const state = {
+      workspaces: [],
+      workspaceHealth: [],
+      sessions: [],
+      refreshTimer: null,
+      creatingWorkspace: null,
+    };
 
-    let workspots = [];
-    let sessions = [];
-    let showHistory = false;
-    let refreshTimer = null;
-    let lastSessionFingerprint = '';
+    const noticeEl = document.getElementById('notice');
+    const navSummaryEl = document.getElementById('nav-summary');
+    const sessionsBadgeEl = document.getElementById('sessions-badge');
+    const workspaceGridEl = document.getElementById('workspace-grid');
+    const runningListEl = document.getElementById('running-list');
+    const pendingListEl = document.getElementById('pending-list');
+    const endedListEl = document.getElementById('ended-list');
+    const runningCountEl = document.getElementById('running-count');
+    const pendingCountEl = document.getElementById('pending-count');
+    const endedCountEl = document.getElementById('ended-count');
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/static/sw.js').catch(() => {});
@@ -214,243 +549,363 @@
         .replaceAll("'", '&#39;');
     }
 
-    function showMessage(text, kind = 'info') {
-      if (!text) {
-        messageEl.style.display = 'none';
-        messageEl.textContent = '';
+    function routeFromHash() {
+      const hash = window.location.hash || '#/';
+      const normalized = hash.replace(/^#/, '');
+      if (normalized === '/sessions' || normalized === 'sessions') return '/sessions';
+      return '/';
+    }
+
+    function setRoute(route) {
+      window.location.hash = route === '/sessions' ? '#/sessions' : '#/';
+    }
+
+    function showNotice(message, kind = 'info') {
+      if (!message) {
+        noticeEl.style.display = 'none';
+        noticeEl.textContent = '';
         return;
       }
-      messageEl.style.display = 'block';
-      messageEl.className = `message ${kind}`;
-      messageEl.textContent = text;
+      noticeEl.className = `notice ${kind}`;
+      noticeEl.textContent = message;
+      noticeEl.style.display = 'block';
     }
 
-    function badgeForStatus(status) {
-      if (status === 'running') return 'badge green';
-      if (status === 'pending') return 'badge yellow';
-      if (status === 'failed') return 'badge red';
-      if (status === 'stopped') return 'badge';
-      return 'badge';
-    }
-
-    function activeSessions() {
-      return sessions.filter(session => ['running', 'pending'].includes(session.status));
-    }
-
-    function historySessions() {
-      return sessions.filter(session => ['stopped', 'failed'].includes(session.status));
-    }
-
-    function groupedSessions(sourceSessions) {
-      const grouped = Object.fromEntries(workspots.map(ws => [ws.name, []]));
-      sourceSessions.forEach(session => {
-        if (!grouped[session.workspot]) grouped[session.workspot] = [];
-        grouped[session.workspot].push(session);
-      });
-      return grouped;
-    }
-
-    function formatTimestamp(value) {
+    function formatTime(value) {
       if (!value) return 'Unknown time';
-      try {
-        return new Date(value).toLocaleString();
-      } catch {
-        return value;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return value;
+      return date.toLocaleString();
+    }
+
+    function healthByName(name) {
+      return state.workspaceHealth.find(item => item.workspot === name) || null;
+    }
+
+    function workspaceStatus(health) {
+      if (!health) return { label: 'Unknown', className: 'status-stopped' };
+      if (!health.runtime_ok || !health.repo_exists || !health.git_ok || !health.claude_bin_ok || !health.auth_ok) {
+        return { label: 'Needs attention', className: 'status-unhealthy' };
       }
+      if (health.server_status === 'running') return { label: 'Ready', className: 'status-running' };
+      if (health.server_status === 'stopped') return { label: 'Stopped', className: 'status-stopped' };
+      return { label: 'Checking', className: 'status-pending' };
     }
 
-    function updateHeader() {
-      const activeCount = activeSessions().length;
-      headerSubtitleEl.textContent = `${activeCount} active session${activeCount === 1 ? '' : 's'} across all workspots`;
-      historyToggleEl.textContent = showHistory
-        ? `Hide History (${historySessions().length})`
-        : `Show History (${historySessions().length})`;
+    function sortSessions() {
+      const weight = { running: 0, pending: 1, failed: 2, stopped: 3 };
+      return [...state.sessions].sort((a, b) => {
+        const diff = (weight[a.status] ?? 99) - (weight[b.status] ?? 99);
+        if (diff !== 0) return diff;
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
     }
 
-    function render() {
-      const activeGrouped = groupedSessions(activeSessions());
-      const historyGrouped = groupedSessions(historySessions());
+    function sessionGroups() {
+      const sorted = sortSessions();
+      return {
+        running: sorted.filter(item => item.status === 'running'),
+        pending: sorted.filter(item => item.status === 'pending'),
+        ended: sorted.filter(item => item.status === 'stopped' || item.status === 'failed'),
+      };
+    }
 
-      workspotsEl.innerHTML = workspots.map(ws => {
-        const active = activeGrouped[ws.name] || [];
-        const history = historyGrouped[ws.name] || [];
+    function updateNav() {
+      const route = routeFromHash();
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.toggle('active', link.dataset.route === route);
+      });
+
+      const pages = {
+        '/': document.getElementById('page-workspaces'),
+        '/sessions': document.getElementById('page-sessions'),
+      };
+      Object.entries(pages).forEach(([key, el]) => el.classList.toggle('active', key === route));
+
+      const activeCount = state.sessions.filter(item => item.status === 'running' || item.status === 'pending').length;
+      sessionsBadgeEl.textContent = String(activeCount);
+      navSummaryEl.textContent = `${state.workspaces.length} workspaces · ${activeCount} active sessions`;
+    }
+
+    function renderWorkspaces() {
+      if (!state.workspaces.length) {
+        workspaceGridEl.innerHTML = '<div class="empty">No workspaces configured yet.</div>';
+        return;
+      }
+
+      workspaceGridEl.innerHTML = state.workspaces.map((workspace) => {
+        const health = healthByName(workspace.name);
+        const status = workspaceStatus(health);
+        const activeHere = state.sessions.filter(session => session.workspot === workspace.name && (session.status === 'running' || session.status === 'pending')).length;
+        const formOpen = state.creatingWorkspace === workspace.name;
+
         return `
-          <section class="panel">
-            <div class="panel-head">
+          <article class="workspace-card">
+            <div class="workspace-header">
               <div>
-                <div class="panel-title">${escapeHtml(ws.name)}</div>
-                <div class="meta-text">${escapeHtml(ws.runtime)} · ${escapeHtml(ws.dir)}</div>
+                <div class="workspace-name">${escapeHtml(workspace.name)}</div>
+                <div class="workspace-meta">${escapeHtml(workspace.container || 'Host runtime')}</div>
               </div>
-              <div class="badge-row">
-                <span class="badge">${active.length} active</span>
-                <span class="badge">capacity ${escapeHtml(ws.server_capacity)}</span>
+              <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
+            </div>
+
+            <div class="workspace-detail-list">
+              <div class="detail-row">
+                <div class="detail-label">Directory</div>
+                <div class="detail-value">${escapeHtml(workspace.dir)}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Runtime</div>
+                <div class="detail-value">${escapeHtml(workspace.runtime)}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Container</div>
+                <div class="detail-value">${escapeHtml(workspace.container || '—')}</div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-label">Active sessions</div>
+                <div class="detail-value">${activeHere}</div>
               </div>
             </div>
 
-            <div class="form-card">
-              <div class="section-title">Start a session</div>
-              <div class="form-grid">
-                <label>Workspot
-                  <select id="workspot-${escapeHtml(ws.name)}" disabled>
-                    <option>${escapeHtml(ws.name)}</option>
-                  </select>
-                </label>
-                <label>Label (optional)
-                  <input id="label-${escapeHtml(ws.name)}" placeholder="bugfix, review, docs" />
-                </label>
-                <label>Branch (optional)
-                  <input id="branch-${escapeHtml(ws.name)}" placeholder="feature/foo" />
-                </label>
-                <button class="primary" onclick="createSession('${escapeHtml(ws.name)}')">Start</button>
-              </div>
+            <div class="card-actions">
+              <button type="button" class="primary" onclick="toggleStartForm('${escapeHtml(workspace.name)}')">Start Session</button>
+              <a class="button-link ghost" href="#/sessions">View Sessions</a>
             </div>
 
-            <div>
-              <div class="section-title">Active sessions</div>
-              <div class="session-list" style="margin-top:12px;">
-                ${active.length ? active.map(session => renderSessionCard(session, false)).join('') : '<div class="empty">No running or pending sessions.</div>'}
+            <div class="inline-form ${formOpen ? 'open' : ''}" id="form-${escapeHtml(workspace.name)}">
+              <div class="section-title">Start a new session</div>
+              <div class="field-grid">
+                <label>
+                  Optional label
+                  <input id="label-${escapeHtml(workspace.name)}" type="text" placeholder="review, docs, bugfix">
+                </label>
+                <label>
+                  Optional branch
+                  <input id="branch-${escapeHtml(workspace.name)}" type="text" placeholder="feature/my-branch">
+                </label>
+              </div>
+              <div class="inline-actions">
+                <button type="button" class="primary" onclick="startSession('${escapeHtml(workspace.name)}')">Start</button>
+                <button type="button" class="ghost" onclick="toggleStartForm('${escapeHtml(workspace.name)}', false)">Cancel</button>
               </div>
             </div>
-
-            ${showHistory ? `
-              <div>
-                <div class="section-title">History</div>
-                <div class="session-list" style="margin-top:12px;">
-                  ${history.length ? history.map(session => renderSessionCard(session, true)).join('') : '<div class="empty">No stopped sessions yet.</div>'}
-                </div>
-              </div>
-            ` : ''}
-          </section>
+          </article>
         `;
       }).join('');
-
-      updateHeader();
     }
 
-    function renderSessionCard(session, isHistory) {
-      const urlCell = session.url
-        ? `<a class="kv-value url" href="${escapeHtml(session.url)}" target="_blank" rel="noopener">${escapeHtml(session.url)}</a>`
-        : '<span class="kv-value">No URL captured</span>';
+    function renderEmpty(message) {
+      return `<div class="empty">${escapeHtml(message)}</div>`;
+    }
+
+    function renderSessionCard(session, { showKill = false, showDelete = false, pending = false } = {}) {
+      const statusClass = session.status === 'running'
+        ? 'status-running'
+        : session.status === 'pending'
+          ? 'status-pending'
+          : session.status === 'failed'
+            ? 'status-unhealthy'
+            : 'status-stopped';
+
       return `
-        <article class="session-card">
-          <div class="session-head">
-            <div class="session-name">${escapeHtml(session.label || session.id)}</div>
-            <span class="${badgeForStatus(session.status)}">${escapeHtml(session.status)}</span>
-          </div>
-          <div class="session-grid">
-            <div class="kv">
-              <span class="kv-label">URL</span>
-              ${urlCell}
+        <article class="session-card ${escapeHtml(session.status)}">
+          <div class="session-header">
+            <div>
+              <div class="session-title">${escapeHtml(session.label || session.id)}</div>
+              <div class="session-meta">${escapeHtml(session.workspot)} · ${escapeHtml(session.status)}</div>
             </div>
-            <div class="kv">
-              <span class="kv-label">Branch</span>
-              <span class="kv-value">${escapeHtml(session.branch || '—')}</span>
-            </div>
-            <div class="button-row">
-              ${!isHistory ? `<button class="danger" onclick="killSession('${escapeHtml(session.id)}')">Kill</button>` : `<button class="danger" onclick="deleteSession('${escapeHtml(session.id)}')">Delete</button>`}
+            <div class="row">
+              ${pending ? '<span class="spinner" aria-hidden="true"></span>' : ''}
+              <span class="status-pill ${statusClass}">${escapeHtml(session.status)}</span>
             </div>
           </div>
-          <div class="session-footer">
-            <span class="meta-text">${escapeHtml(formatTimestamp(session.created_at))}</span>
-            <span class="meta-text">${escapeHtml(session.id)}</span>
+
+          <div class="session-detail-list">
+            <div class="detail-row">
+              <div class="detail-label">URL</div>
+              <div class="detail-value">${session.url ? `<a class="session-link" href="${escapeHtml(session.url)}" target="_blank" rel="noopener">${escapeHtml(session.url)}</a>` : 'Waiting for URL'}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Workspot</div>
+              <div class="detail-value">${escapeHtml(session.workspot)}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Branch</div>
+              <div class="detail-value">${escapeHtml(session.branch || '—')}</div>
+            </div>
+            <div class="detail-row">
+              <div class="detail-label">Started</div>
+              <div class="detail-value">${escapeHtml(formatTime(session.created_at))}</div>
+            </div>
+          </div>
+
+          <div class="session-actions">
+            ${showKill ? `<button type="button" class="danger" onclick="killSession('${escapeHtml(session.id)}')">Kill</button>` : ''}
+            ${showDelete ? `<button type="button" class="danger" onclick="deleteSession('${escapeHtml(session.id)}')">Delete</button>` : ''}
           </div>
         </article>
       `;
     }
 
-    async function createSession(workspot) {
-      const branch = document.getElementById(`branch-${workspot}`).value.trim();
-      const label = document.getElementById(`label-${workspot}`).value.trim();
-      showMessage('Starting session…');
+    function renderSessions() {
+      const groups = sessionGroups();
+      runningCountEl.textContent = String(groups.running.length);
+      pendingCountEl.textContent = String(groups.pending.length);
+      endedCountEl.textContent = String(groups.ended.length);
+
+      runningListEl.innerHTML = groups.running.length
+        ? groups.running.map(session => renderSessionCard(session, { showKill: true })).join('')
+        : renderEmpty('No running sessions right now.');
+
+      pendingListEl.innerHTML = groups.pending.length
+        ? groups.pending.map(session => renderSessionCard(session, { pending: true, showKill: true })).join('')
+        : renderEmpty('Nothing pending.');
+
+      endedListEl.innerHTML = groups.ended.length
+        ? groups.ended.map(session => renderSessionCard(session, { showDelete: true })).join('')
+        : renderEmpty('No stopped or failed sessions yet.');
+    }
+
+    function render() {
+      updateNav();
+      renderWorkspaces();
+      renderSessions();
+    }
+
+    function toggleStartForm(workspaceName, force) {
+      const next = typeof force === 'boolean'
+        ? (force ? workspaceName : null)
+        : (state.creatingWorkspace === workspaceName ? null : workspaceName);
+      state.creatingWorkspace = next;
+      renderWorkspaces();
+    }
+
+    async function startSession(workspaceName) {
+      const labelEl = document.getElementById(`label-${workspaceName}`);
+      const branchEl = document.getElementById(`branch-${workspaceName}`);
+      const payload = {
+        workspot: workspaceName,
+        worktree: false,
+        label: labelEl?.value.trim() || null,
+        branch: branchEl?.value.trim() || null,
+        directory: null,
+      };
+
+      showNotice(`Starting a new session in ${workspaceName}…`, 'info');
+
       try {
-        const res = await fetch('/api/sessions', {
+        const response = await fetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            workspot,
-            worktree: false,
-            branch: branch || null,
-            label: label || null,
-            directory: null,
-          }),
+          body: JSON.stringify(payload),
         });
-        const data = await res.json();
-        if (data.status !== 'ok') {
-          showMessage(data.message || 'Failed to start session.', 'error');
+        const result = await response.json();
+        if (result.status !== 'ok') {
+          showNotice(result.message || 'Failed to start session.', 'error');
           return;
         }
-        showMessage(data.pending_url
-          ? (data.message || 'Session started and is waiting for URL capture.')
-          : `Session ready: ${data.session?.label || workspot}`);
-        await refreshData(true);
-      } catch {
-        showMessage('Could not reach launcher server.', 'error');
+
+        state.creatingWorkspace = null;
+        showNotice(result.message || `Session started in ${workspaceName}.`, 'info');
+        await loadData();
+        setRoute('/sessions');
+        render();
+      } catch (error) {
+        console.error(error);
+        showNotice('Could not reach the launcher backend.', 'error');
       }
     }
 
     async function killSession(sessionId) {
+      showNotice(`Killing session ${sessionId}…`, 'info');
       try {
-        const res = await fetch(`/api/sessions/${sessionId}/kill`, { method: 'POST' });
-        const data = await res.json();
-        if (data.status !== 'ok') {
-          showMessage(data.message || 'Failed to kill session.', 'error');
+        const response = await fetch(`/api/sessions/${sessionId}/kill`, { method: 'POST' });
+        const result = await response.json();
+        if (result.status !== 'ok') {
+          showNotice(result.message || 'Failed to kill session.', 'error');
           return;
         }
-        showMessage(`Killed session ${sessionId}`);
-        await refreshData(false);
-      } catch {
-        showMessage('Could not kill session.', 'error');
+        showNotice(`Killed session ${sessionId}.`, 'info');
+        await loadData();
+        render();
+      } catch (error) {
+        console.error(error);
+        showNotice('Could not kill the session.', 'error');
       }
     }
 
     async function deleteSession(sessionId) {
+      showNotice(`Deleting session ${sessionId}…`, 'info');
       try {
-        const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.status !== 'ok') {
-          showMessage(data.message || 'Failed to delete session.', 'error');
+        const response = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+        const result = await response.json();
+        if (result.status !== 'ok') {
+          showNotice(result.message || 'Failed to delete session.', 'error');
           return;
         }
-        showMessage(`Deleted session ${sessionId}`);
-        await refreshData(false);
-      } catch {
-        showMessage('Could not delete session.', 'error');
+        showNotice(`Deleted session ${sessionId}.`, 'info');
+        await loadData();
+        render();
+      } catch (error) {
+        console.error(error);
+        showNotice('Could not delete the session.', 'error');
       }
     }
 
-    function toggleHistory() {
-      showHistory = !showHistory;
-      render();
-    }
-
-    async function refreshData(boostPoll = false) {
-      const [workspotsRes, sessionsRes] = await Promise.all([
+    async function loadData() {
+      const [workspacesRes, healthRes, sessionsRes] = await Promise.all([
         fetch('/api/workspots'),
+        fetch('/api/workspots/health'),
         fetch('/api/sessions'),
       ]);
-      workspots = await workspotsRes.json();
-      sessions = await sessionsRes.json();
-      refreshEl.textContent = new Date().toLocaleTimeString();
-      refreshNoteEl.textContent = `${activeSessions().length} active · ${historySessions().length} in history`;
 
-      const fingerprint = JSON.stringify(sessions.map(s => [s.id, s.status, s.url]));
-      if (fingerprint !== lastSessionFingerprint && sessions.some(s => s.url)) {
-        showMessage(`Dashboard refreshed — ${sessions.filter(s => s.url).length} session URL(s) captured.`);
+      if (!workspacesRes.ok || !healthRes.ok || !sessionsRes.ok) {
+        throw new Error('Failed to load launcher data');
       }
-      lastSessionFingerprint = fingerprint;
-      render();
-      schedulePoll(boostPoll || activeSessions().some(s => s.status === 'pending' && !s.url));
+
+      state.workspaces = await workspacesRes.json();
+      state.workspaceHealth = await healthRes.json();
+      state.sessions = await sessionsRes.json();
     }
 
-    function schedulePoll(fast) {
-      clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => refreshData(false).catch(() => {
-        showMessage('Failed to refresh dashboard.', 'error');
-        schedulePoll(false);
-      }), fast ? 2000 : 10000);
+    function scheduleRefresh() {
+      clearTimeout(state.refreshTimer);
+      const hasPending = state.sessions.some(session => session.status === 'pending');
+      state.refreshTimer = window.setTimeout(async () => {
+        try {
+          await loadData();
+          render();
+        } catch (error) {
+          console.error(error);
+          showNotice('Refresh failed. Trying again soon.', 'error');
+        }
+        scheduleRefresh();
+      }, hasPending ? 2500 : 10000);
     }
 
-    refreshData(true).catch(() => showMessage('Failed to load dashboard.', 'error'));
+    async function boot() {
+      document.getElementById('back-button').addEventListener('click', () => setRoute('/'));
+      window.addEventListener('hashchange', render);
+
+      try {
+        await loadData();
+        render();
+        showNotice('Launcher ready.', 'info');
+      } catch (error) {
+        console.error(error);
+        showNotice('Could not load launcher data.', 'error');
+      }
+
+      scheduleRefresh();
+    }
+
+    window.toggleStartForm = toggleStartForm;
+    window.startSession = startSession;
+    window.killSession = killSession;
+    window.deleteSession = deleteSession;
+
+    boot();
   </script>
 </body>
 </html>

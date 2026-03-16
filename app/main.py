@@ -39,6 +39,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/")
+@app.get("/sessions")
 async def index():
     return FileResponse(STATIC_DIR / "index.html")
 
