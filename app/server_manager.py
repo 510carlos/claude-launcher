@@ -42,9 +42,8 @@ class ServerManager:
 
     async def check_auth(self, workspot: Workspot) -> bool:
         runtime = self.runtime_manager.for_workspot(workspot)
-        creds = workspot.env.get("CLAUDE_CREDENTIALS_PATH") or (
-            "/home/node/.claude/.credentials.json" if workspot.runtime.value == "docker" else "/home/claude-config/.claude/.credentials.json"
-        )
+        home = workspot.env.get("HOME", "~")
+        creds = workspot.env.get("CLAUDE_CREDENTIALS_PATH") or f"{home}/.claude/.credentials.json"
         result = await runtime.run_shell(workspot, f"test -s {creds} && echo ok")
         return result.returncode == 0 and "ok" in result.stdout
 
