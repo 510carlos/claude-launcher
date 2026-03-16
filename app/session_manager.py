@@ -49,7 +49,7 @@ class SessionManager:
         runtime = self._runtime(workspot)
         output_file = self.server_manager.output_file(workspot.name)
         record = await self.server_manager.reconcile_server(workspot)
-        if record.status != record.status.running:
+        if record.status != SessionStatus.running:
             return None
         output = await runtime.run(workspot, ["cat", output_file])
         if output.returncode == 0:
