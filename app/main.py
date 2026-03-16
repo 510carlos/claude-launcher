@@ -1,243 +1,143 @@
+from __future__ import annotations
+
 import asyncio
-import json
 import logging
-import os
 import re
 import secrets
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
-load_dotenv()
+from config import load_config
+from models import KillRequest, ServerRecord, ServerStatus, SessionRecord, SessionStatus, StartRequest, Workspot
+from registry import SessionHistoryStore, SessionRegistry
+from runtime import RuntimeManager
 
-CLAUDE_GLOBAL_FLAGS = os.getenv("CLAUDE_GLOBAL_FLAGS", "")
-CLAUDE_RC_FLAGS = os.getenv("CLAUDE_RC_FLAGS", "")
-TS_KEY_EXPIRES = os.getenv("TS_KEY_EXPIRES", "")
-URL_CAPTURE_TIMEOUT = int(os.getenv("URL_CAPTURE_TIMEOUT", "30"))
-SESSION_HISTORY_FILE = Path("/data/sessions.json")
-MAX_SESSIONS = 10
-
-# Local env for the claude-bot workspot (native subprocess)
-LOCAL_CLAUDE_ENV = {
-    **os.environ,
-    "HOME": "/home/claude-config",
-    "XDG_DATA_HOME": "/home/claude-share",
-}
+config = load_config()
+registry = SessionRegistry(config.session_registry_file)
+history_store = SessionHistoryStore(config.session_history_file, max_sessions=config.max_sessions)
+runtime_manager = RuntimeManager(local_env=config.local_claude_env)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
-
-
-def parse_workspots() -> list[dict]:
-    raw = os.getenv("WORKSPOTS", "[]")
-    try:
-        return json.loads(raw)
-    except Exception:
-        log.error("Failed to parse WORKSPOTS env var")
-        return []
-
-
-WORKSPOTS = parse_workspots()
-
-
-def get_workspot(name: str) -> dict | None:
-    return next((w for w in WORKSPOTS if w["name"] == name), None)
-
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.on_event("startup")
-async def check_ts_key_expiry():
-    if not TS_KEY_EXPIRES:
-        return
-    try:
-        expiry = datetime.fromisoformat(TS_KEY_EXPIRES).replace(tzinfo=timezone.utc)
-        days_left = (expiry - datetime.now(timezone.utc)).days
-        if days_left <= 14:
-            log.warning(
-                "Tailscale auth key expires in %d day(s) (%s). Rotate soon!",
-                days_left,
-                TS_KEY_EXPIRES,
-            )
-    except ValueError:
-        log.warning("TS_KEY_EXPIRES '%s' is not a valid ISO date, skipping check.", TS_KEY_EXPIRES)
-
-
-# ---------------------------------------------------------------------------
-# Session history
-# ---------------------------------------------------------------------------
-
-def load_sessions() -> list:
-    if SESSION_HISTORY_FILE.exists():
-        try:
-            return json.loads(SESSION_HISTORY_FILE.read_text())
-        except Exception:
-            return []
-    return []
-
-
-def save_session(url: str, workspot: str, worktree: str | None = None):
-    SESSION_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
-    sessions = load_sessions()
-    sessions.insert(0, {
-        "url": url,
-        "started_at": datetime.utcnow().isoformat() + "Z",
-        "workspot": workspot,
-        "worktree": worktree,
-    })
-    sessions = sessions[:MAX_SESSIONS]
-    SESSION_HISTORY_FILE.write_text(json.dumps(sessions, indent=2))
-
-
-# ---------------------------------------------------------------------------
-# Execution helpers
-# ---------------------------------------------------------------------------
-
-async def run_docker_exec(container: str, args: list[str]) -> tuple[int, str, str]:
-    proc = await asyncio.create_subprocess_exec(
-        "docker", "exec", container, *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    return proc.returncode, stdout.decode(), stderr.decode()
-
-
-async def run_local(args: list[str]) -> tuple[int, str, str]:
-    """Run a command directly inside the launcher container."""
-    proc = await asyncio.create_subprocess_exec(
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env=LOCAL_CLAUDE_ENV,
-    )
-    stdout, stderr = await proc.communicate()
-    return proc.returncode, stdout.decode(), stderr.decode()
-
-
-async def check_claude_auth(workspot: dict) -> bool:
-    container = workspot.get("container")
-    creds = "/home/node/.claude/.credentials.json"
-    if container:
-        rc, out, _ = await run_docker_exec(container, ["bash", "-c",
-            f"test -s {creds} && echo ok"])
-    else:
-        local_creds = "/home/claude-config/.claude/.credentials.json"
-        rc, out, _ = await run_local(["bash", "-c",
-            f"test -s {local_creds} && echo ok"])
-    return rc == 0 and "ok" in out
-
-
-async def is_session_running(workspot: dict) -> str | None:
-    """Return existing URL if a claude remote-control process is running for this workspot."""
-    container = workspot.get("container")
-    output_file = _output_file(workspot["name"])
-
-    if container:
-        rc, _, _ = await run_docker_exec(container, ["pgrep", "-f", "claude remote-control"])
-        if rc != 0:
-            return None
-        rc2, out2, _ = await run_docker_exec(container, ["cat", output_file])
-    else:
-        rc, _, _ = await run_local(["pgrep", "-f", "claude remote-control"])
-        if rc != 0:
-            return None
-        rc2, out2, _ = await run_local(["cat", output_file])
-
-    if rc2 == 0:
-        match = re.search(r"https://claude\.ai/code\S+", out2)
-        if match:
-            return match.group(0)
-    # Process running but no URL in output file — stale process, kill it
-    await kill_session(workspot)
-    return None
-
-
-async def kill_session(workspot: dict):
-    """Kill any running claude remote-control processes for this workspot."""
-    container = workspot.get("container")
-    kill_cmd = ["bash", "-c", "pgrep -f 'claude remote-control' | xargs -r kill"]
-    if container:
-        await run_docker_exec(container, kill_cmd)
-    else:
-        await run_local(kill_cmd)
+def _server_key(workspot: Workspot) -> str:
+    return workspot.name
 
 
 def _output_file(workspot_name: str) -> str:
     return f"/tmp/claude-rc-{workspot_name}.txt"
 
 
-async def poll_for_url(workspot: dict, output_file: str) -> tuple[str | None, str]:
-    """Returns (url, last_output). url is None on timeout."""
-    container = workspot.get("container")
-    deadline = time.monotonic() + URL_CAPTURE_TIMEOUT
+def _runtime(workspot: Workspot):
+    return runtime_manager.for_workspot(workspot)
+
+
+def _build_server_record(workspot: Workspot, *, status: ServerStatus, log_file: str | None = None) -> ServerRecord:
+    now = datetime.now(timezone.utc)
+    return ServerRecord(
+        workspot=workspot.name,
+        server_key=_server_key(workspot),
+        runtime=workspot.runtime,
+        container=workspot.container,
+        status=status,
+        capacity=workspot.server_capacity,
+        last_seen_at=now,
+        started_at=now if status == ServerStatus.running else None,
+        log_file=log_file,
+    )
+
+
+@app.on_event("startup")
+async def check_ts_key_expiry():
+    if not config.ts_key_expires:
+        return
+    try:
+        expiry = datetime.fromisoformat(config.ts_key_expires).replace(tzinfo=timezone.utc)
+        days_left = (expiry - datetime.now(timezone.utc)).days
+        if days_left <= 14:
+            log.warning(
+                "Tailscale auth key expires in %d day(s) (%s). Rotate soon!",
+                days_left,
+                config.ts_key_expires,
+            )
+    except ValueError:
+        log.warning("TS_KEY_EXPIRES '%s' is not a valid ISO date, skipping check.", config.ts_key_expires)
+
+
+async def check_claude_auth(workspot: Workspot) -> bool:
+    runtime = _runtime(workspot)
+    creds = "/home/node/.claude/.credentials.json" if workspot.runtime.value == "docker" else "/home/claude-config/.claude/.credentials.json"
+    result = await runtime.run_shell(workspot, f"test -s {creds} && echo ok")
+    return result.returncode == 0 and "ok" in result.stdout
+
+
+async def is_session_running(workspot: Workspot) -> str | None:
+    runtime = _runtime(workspot)
+    output_file = _output_file(workspot.name)
+
+    proc_check = await runtime.run(workspot, ["pgrep", "-f", "claude remote-control"])
+    if proc_check.returncode != 0:
+        registry.upsert_server(_build_server_record(workspot, status=ServerStatus.stopped, log_file=output_file))
+        return None
+
+    output = await runtime.run(workspot, ["cat", output_file])
+    if output.returncode == 0:
+        match = re.search(r"https://claude\.ai/code\S+", output.stdout)
+        if match:
+            registry.upsert_server(_build_server_record(workspot, status=ServerStatus.running, log_file=output_file))
+            return match.group(0)
+
+    await kill_session(workspot)
+    registry.upsert_server(_build_server_record(workspot, status=ServerStatus.unhealthy, log_file=output_file))
+    return None
+
+
+async def kill_session(workspot: Workspot):
+    runtime = _runtime(workspot)
+    await runtime.run_shell(workspot, "pgrep -f 'claude remote-control' | xargs -r kill")
+
+
+async def poll_for_url(workspot: Workspot, output_file: str) -> tuple[str | None, str]:
+    runtime = _runtime(workspot)
+    deadline = time.monotonic() + config.url_capture_timeout
     last_output = ""
     while time.monotonic() < deadline:
         await asyncio.sleep(0.5)
-        if container:
-            rc, out, _ = await run_docker_exec(container, ["cat", output_file])
-        else:
-            rc, out, _ = await run_local(["cat", output_file])
-        if rc == 0:
-            last_output = out.strip()
-            match = re.search(r"https://claude\.ai/code\S+", out)
+        result = await runtime.run(workspot, ["cat", output_file])
+        if result.returncode == 0:
+            last_output = result.stdout.strip()
+            match = re.search(r"https://claude\.ai/code\S+", result.stdout)
             if match:
                 return match.group(0), last_output
     return None, last_output
 
 
-async def launch_session(workspot: dict, working_dir: str, output_file: str) -> tuple[bool, str]:
-    """Start claude remote-control detached. Returns (success, error_message)."""
-    container = workspot.get("container")
-    cmd = f"claude remote-control {CLAUDE_RC_FLAGS}".strip()
-    launch = f"cd {working_dir} && {cmd} 2>&1 | tee {output_file}"
-
-    if container:
-        proc = await asyncio.create_subprocess_exec(
-            "docker", "exec", "-d", container, "bash", "-c", launch,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+async def launch_session(workspot: Workspot, working_dir: str, output_file: str) -> tuple[bool, str]:
+    runtime = _runtime(workspot)
+    flags = " ".join(part for part in [config.claude_global_flags, workspot.claude_bin, "remote-control", config.claude_rc_flags] if part).strip()
+    if workspot.runtime.value == "docker":
+        command = f"cd {working_dir} && {flags} 2>&1 | tee {output_file}"
+        result = await runtime.run_shell(workspot, command, detached=True)
     else:
-        local_launch = f"{cmd} 2>&1 | tee {output_file}"
-        proc = await asyncio.create_subprocess_exec(
-            "bash", "-c", local_launch,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.PIPE,
-            env=LOCAL_CLAUDE_ENV,
-            cwd=working_dir,
-            start_new_session=True,
-        )
+        command = f"{flags} 2>&1 | tee {output_file}"
+        result = await runtime.run_shell(workspot, command, cwd=working_dir, detached=True)
 
-    _, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        err = stderr.decode().strip()
-        if container and "No such container" in err:
-            return False, f"Container '{container}' not found."
+    if result.returncode != 0:
+        err = result.stderr.strip()
+        if workspot.container and "No such container" in err:
+            return False, f"Container '{workspot.container}' not found."
         return False, err or "Failed to start claude"
+
+    registry.upsert_server(_build_server_record(workspot, status=ServerStatus.running, log_file=output_file))
     return True, ""
-
-
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
-class StartRequest(BaseModel):
-    workspot: str
-    worktree: Optional[bool] = False
-
-
-class KillRequest(BaseModel):
-    workspot: str
 
 
 @app.get("/")
@@ -247,50 +147,49 @@ async def index():
 
 @app.get("/workspots")
 async def list_workspots():
-    return JSONResponse([{"name": w["name"]} for w in WORKSPOTS])
+    return JSONResponse([{ 
+        "name": w.name,
+        "runtime": w.runtime.value,
+        "container": w.container,
+        "dir": w.dir,
+        "server_capacity": w.server_capacity,
+    } for w in config.workspots])
 
 
 @app.get("/sessions")
 async def get_sessions():
-    return JSONResponse(load_sessions())
+    return JSONResponse(history_store.load())
 
 
 @app.get("/status")
 async def get_status():
-    """Return running state for all workspots."""
-    results = await asyncio.gather(*[
-        is_session_running(ws) for ws in WORKSPOTS
-    ])
+    results = await asyncio.gather(*[is_session_running(ws) for ws in config.workspots])
     return JSONResponse([
-        {"name": ws["name"], "running": url is not None, "url": url}
-        for ws, url in zip(WORKSPOTS, results)
+        {"name": ws.name, "running": url is not None, "url": url}
+        for ws, url in zip(config.workspots, results)
     ])
 
 
 @app.post("/kill")
 async def kill_session_endpoint(req: KillRequest):
-    ws = get_workspot(req.workspot)
+    ws = config.get_workspot(req.workspot)
     if not ws:
         return JSONResponse({"status": "error", "message": f"Unknown workspot '{req.workspot}'"})
     await kill_session(ws)
-    output_file = _output_file(ws["name"])
-    container = ws.get("container")
-    if container:
-        await run_docker_exec(container, ["bash", "-c", f"rm -f {output_file}"])
-    else:
-        await run_local(["bash", "-c", f"rm -f {output_file}"])
+    await _runtime(ws).run_shell(ws, f"rm -f {_output_file(ws.name)}")
+    registry.upsert_server(_build_server_record(ws, status=ServerStatus.stopped, log_file=_output_file(ws.name)))
     return JSONResponse({"status": "ok"})
 
 
 @app.post("/start")
 async def start_session(req: StartRequest):
-    ws = get_workspot(req.workspot)
+    ws = config.get_workspot(req.workspot)
     if not ws:
         return JSONResponse({"status": "error", "message": f"Unknown workspot '{req.workspot}'"})
 
     existing_url = await is_session_running(ws)
     if existing_url:
-        return JSONResponse({"status": "ok", "url": existing_url, "reused": True, "workspot": ws["name"]})
+        return JSONResponse({"status": "ok", "url": existing_url, "reused": True, "workspot": ws.name})
 
     if not await check_claude_auth(ws):
         return JSONResponse({
@@ -298,23 +197,33 @@ async def start_session(req: StartRequest):
             "message": "Claude is not authenticated. Run 'claude' interactively first.",
         })
 
-    output_file = _output_file(ws["name"])
-    container = ws.get("container")
+    output_file = _output_file(ws.name)
+    await _runtime(ws).run_shell(ws, f"rm -f {output_file}")
 
-    # Clear old output file
-    if container:
-        await run_docker_exec(container, ["bash", "-c", f"rm -f {output_file}"])
-    else:
-        await run_local(["bash", "-c", f"rm -f {output_file}"])
-
-    ok, err = await launch_session(ws, ws["dir"], output_file)
+    ok, err = await launch_session(ws, ws.dir, output_file)
     if not ok:
         return JSONResponse({"status": "error", "message": err})
 
     url, last_output = await poll_for_url(ws, output_file)
     if url:
-        save_session(url, workspot=ws["name"])
-        return JSONResponse({"status": "ok", "url": url, "reused": False, "workspot": ws["name"]})
+        history_store.save_session(url, workspot=ws.name)
+        registry.upsert_session(SessionRecord(
+            id=secrets.token_urlsafe(8),
+            workspot=ws.name,
+            server_key=_server_key(ws),
+            label=ws.name,
+            runtime=ws.runtime,
+            container=ws.container,
+            repo_root=ws.dir,
+            working_dir=ws.dir,
+            url=url,
+            status=SessionStatus.running,
+            created_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+            source="launcher",
+            server_session_name=ws.name,
+        ))
+        return JSONResponse({"status": "ok", "url": url, "reused": False, "workspot": ws.name})
 
     msg = f"Timed out. Last output:\n{last_output}" if last_output else "Timed out. No output from claude — check it is installed and authenticated in the container."
     return JSONResponse({"status": "error", "message": msg})
@@ -322,7 +231,7 @@ async def start_session(req: StartRequest):
 
 @app.post("/start-worktree")
 async def start_worktree_session(req: StartRequest):
-    ws = get_workspot(req.workspot)
+    ws = config.get_workspot(req.workspot)
     if not ws:
         return JSONResponse({"status": "error", "message": f"Unknown workspot '{req.workspot}'"})
 
@@ -338,18 +247,11 @@ async def start_worktree_session(req: StartRequest):
     worktree_path = f"/tmp/claude-worktrees/{branch}"
     output_file = f"/tmp/claude-rc-wt-{branch}.txt"
 
-    container = ws.get("container")
-    git_cmd = f"git -C {ws['dir']} worktree add -b {branch} {worktree_path} 2>&1"
-
-    if container:
-        rc, out, err = await run_docker_exec(container, ["bash", "-c", git_cmd])
-    else:
-        rc, out, err = await run_local(["bash", "-c", git_cmd])
-
-    if rc != 0:
+    git_result = await _runtime(ws).run_shell(ws, f"git -C {ws.dir} worktree add -b {branch} {worktree_path} 2>&1")
+    if git_result.returncode != 0:
         return JSONResponse({
             "status": "error",
-            "message": f"Failed to create worktree: {(out + err).strip()}",
+            "message": f"Failed to create worktree: {(git_result.stdout + git_result.stderr).strip()}",
         })
 
     ok, err_msg = await launch_session(ws, worktree_path, output_file)
@@ -358,8 +260,26 @@ async def start_worktree_session(req: StartRequest):
 
     url, last_output = await poll_for_url(ws, output_file)
     if url:
-        save_session(url, workspot=ws["name"], worktree=branch)
-        return JSONResponse({"status": "ok", "url": url, "worktree": branch, "reused": False, "workspot": ws["name"]})
+        history_store.save_session(url, workspot=ws.name, worktree=branch)
+        registry.upsert_session(SessionRecord(
+            id=secrets.token_urlsafe(8),
+            workspot=ws.name,
+            server_key=_server_key(ws),
+            label=branch,
+            runtime=ws.runtime,
+            container=ws.container,
+            repo_root=ws.dir,
+            working_dir=worktree_path,
+            branch=branch,
+            worktree_path=worktree_path,
+            url=url,
+            status=SessionStatus.running,
+            created_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(timezone.utc),
+            source="launcher",
+            server_session_name=branch,
+        ))
+        return JSONResponse({"status": "ok", "url": url, "worktree": branch, "reused": False, "workspot": ws.name})
 
     msg = f"Timed out. Last output:\n{last_output}" if last_output else "Timed out. No output from claude — check it is installed and authenticated in the container."
     return JSONResponse({"status": "error", "message": msg})
