@@ -1,0 +1,30 @@
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: claude-launcher-tailscale
+    restart: unless-stopped
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTHKEY}
+      - TS_HOSTNAME=${TAILSCALE_HOSTNAME:-claude-launcher}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_EXTRA_ARGS=--advertise-tags=tag:claude-launcher
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    network_mode: service:claude-launcher
+
+  claude-launcher:
+    build: ./app
+    container_name: claude-launcher
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${PORT:-8765}:8765"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - session-history:/data
+    env_file:
+      - .env
+
+volumes:
+  tailscale-state:
+  session-history:
