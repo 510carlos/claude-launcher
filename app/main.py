@@ -105,6 +105,14 @@ async def get_session(session_id: str):
     return JSONResponse(session.model_dump(mode="json"))
 
 
+@app.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: str):
+    deleted = registry.delete_session(session_id)
+    if not deleted:
+        return JSONResponse({"status": "error", "message": f"Unknown session '{session_id}'"}, status_code=404)
+    return JSONResponse({"status": "ok", "session_id": session_id})
+
+
 @app.get("/status")
 async def get_status():
     results = []

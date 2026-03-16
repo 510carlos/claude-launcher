@@ -48,6 +48,15 @@ class SessionRegistry:
         self.save(state)
         return record
 
+    def delete_session(self, session_id: str) -> bool:
+        state = self.load()
+        original_count = len(state.sessions)
+        state.sessions = [session for session in state.sessions if session.id != session_id]
+        if len(state.sessions) == original_count:
+            return False
+        self.save(state)
+        return True
+
     def get_session(self, session_id: str) -> SessionRecord | None:
         return next((item for item in self.load().sessions if item.id == session_id), None)
 

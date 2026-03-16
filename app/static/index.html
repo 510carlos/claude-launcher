@@ -8,74 +8,196 @@
   <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>Claude Launcher</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:#0a0a0a; --surface:#111111; --surface-2:#151515; --border:#252525;
-      --text:#e7e7e7; --muted:#7b7b7b; --green:#22c55e; --red:#ef4444; --yellow:#eab308; --accent:#a78bfa;
+      --bg:#0a0a0a; --surface:#111111; --surface-2:#171717; --surface-3:#1c1c1c; --border:#2a2a2a;
+      --text:#ebebeb; --muted:#9a9a9a; --green:#22c55e; --red:#ef4444; --yellow:#eab308; --accent:#a78bfa;
+      --shadow:0 12px 28px rgba(0,0,0,.28);
+      --radius:18px;
     }
-    body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100dvh; padding:24px; }
-    .page { width:100%; max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
-    .header { display:flex; justify-content:space-between; gap:16px; align-items:flex-end; flex-wrap:wrap; }
-    .title { font-family:'JetBrains Mono',monospace; font-size:28px; }
-    .subtitle, .muted { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; }
-    .status-pill { border:1px solid var(--border); border-radius:999px; padding:8px 12px; background:var(--surface); }
-    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap:16px; }
-    .panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:16px; }
-    .panel-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-    .panel-title { font-family:'JetBrains Mono',monospace; font-size:18px; }
-    .badge-row { display:flex; gap:8px; flex-wrap:wrap; }
-    .badge { border:1px solid var(--border); border-radius:999px; padding:4px 8px; font-size:11px; font-family:'JetBrains Mono',monospace; color:var(--muted); }
-    .badge.green { color:var(--green); border-color:rgba(34,197,94,.5); }
-    .badge.yellow { color:var(--yellow); border-color:rgba(234,179,8,.5); }
-    .badge.red { color:var(--red); border-color:rgba(239,68,68,.5); }
-    .badge.accent { color:var(--accent); border-color:rgba(167,139,250,.5); }
-    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-    .form-grid .full { grid-column:1 / -1; }
-    label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
-    input { width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px; color:var(--text); font-family:'JetBrains Mono',monospace; }
-    input:focus { outline:none; border-color:var(--accent); }
-    .actions { display:flex; gap:10px; flex-wrap:wrap; }
-    button { background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:12px 14px; cursor:pointer; font-family:'JetBrains Mono',monospace; }
-    button.primary { border-color:var(--accent); color:var(--accent); }
-    button.danger { border-color:rgba(239,68,68,.4); color:var(--red); }
-    button:disabled { opacity:.45; cursor:not-allowed; }
-    .session-list { display:flex; flex-direction:column; gap:10px; }
-    .session-card { background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; }
-    .session-head, .session-meta, .session-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
-    .session-name { font-weight:600; }
-    .kv { display:flex; flex-direction:column; gap:4px; min-width:0; }
-    .kv-label { color:var(--muted); font-size:11px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; }
-    .kv-value { font-family:'JetBrains Mono',monospace; font-size:12px; word-break:break-word; }
-    .url { color:var(--green); text-decoration:none; }
-    .empty { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; padding:10px 0; }
-    .message { border-radius:10px; padding:12px 14px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; }
+    body {
+      background:linear-gradient(180deg, #0a0a0a 0%, #0d0d0d 100%);
+      color:var(--text);
+      font-family:'Inter',sans-serif;
+      min-height:100dvh;
+      padding:18px;
+    }
+    .page { width:100%; max-width:1080px; margin:0 auto; display:flex; flex-direction:column; gap:18px; }
+    .header {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:24px;
+      padding:22px 20px;
+      box-shadow:var(--shadow);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    .eyebrow, .muted, .meta-text, .subtitle-small {
+      color:var(--muted);
+      font-family:'JetBrains Mono',monospace;
+      font-size:12px;
+    }
+    .title { font-size:32px; font-weight:700; line-height:1.05; }
+    .subtitle { margin-top:8px; color:#d3d3d3; font-size:15px; }
+    .header-status {
+      min-width:140px;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:var(--surface-2);
+      padding:12px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .header-status strong { font-size:22px; }
+    .message { border-radius:16px; padding:14px 16px; font-family:'JetBrains Mono',monospace; font-size:12px; white-space:pre-wrap; }
     .message.info { background:#10151f; border:1px solid #1e2f47; color:#9ec5ff; }
     .message.error { background:#1a0a0a; border:1px solid #3a1a1a; color:var(--red); }
-    @media (max-width:720px){ .form-grid{ grid-template-columns:1fr; } }
+    .workspot-list { display:flex; flex-direction:column; gap:16px; }
+    .panel {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .panel-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .panel-title { font-size:22px; font-weight:700; }
+    .badge-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-family:'JetBrains Mono',monospace;
+      color:var(--muted);
+      background:rgba(255,255,255,.02);
+    }
+    .badge.green { color:var(--green); border-color:rgba(34,197,94,.45); }
+    .badge.yellow { color:var(--yellow); border-color:rgba(234,179,8,.45); }
+    .badge.red { color:var(--red); border-color:rgba(239,68,68,.45); }
+    .form-card {
+      background:var(--surface-2);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .form-grid { display:grid; grid-template-columns:1.15fr 1fr 1fr auto; gap:10px; align-items:end; }
+    label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); font-family:'JetBrains Mono',monospace; }
+    input, select, button {
+      min-height:48px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:var(--surface-3);
+      color:var(--text);
+      font-size:16px;
+      padding:12px 14px;
+      font-family:inherit;
+    }
+    input, select { width:100%; }
+    input:focus, select:focus { outline:none; border-color:var(--accent); }
+    button {
+      cursor:pointer;
+      font-family:'JetBrains Mono',monospace;
+      font-size:13px;
+      font-weight:500;
+      transition:transform .08s ease, opacity .15s ease, border-color .15s ease;
+    }
+    button:active { transform:scale(.99); }
+    button.primary { border-color:rgba(167,139,250,.55); color:var(--accent); }
+    button.danger { border-color:rgba(239,68,68,.45); color:var(--red); }
+    button.ghost { color:#d8d8d8; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .section-title { font-size:14px; font-weight:600; color:#f3f3f3; }
+    .session-list { display:flex; flex-direction:column; gap:12px; }
+    .session-card {
+      background:var(--surface-2);
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .session-head, .session-footer { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+    .session-name { font-size:17px; font-weight:600; }
+    .session-grid { display:grid; grid-template-columns: minmax(0, 1.1fr) auto auto; gap:12px; align-items:center; }
+    .kv { min-width:0; display:flex; flex-direction:column; gap:5px; }
+    .kv-label { color:var(--muted); font-size:11px; font-family:'JetBrains Mono',monospace; text-transform:uppercase; }
+    .kv-value { font-family:'JetBrains Mono',monospace; font-size:13px; word-break:break-word; }
+    .url { color:#8ee7ac; text-decoration:none; }
+    .button-row { display:flex; gap:10px; flex-wrap:wrap; }
+    .empty { color:var(--muted); font-family:'JetBrains Mono',monospace; font-size:12px; padding:4px 0; }
+    .history-footer { display:flex; justify-content:center; }
+    .toggle-btn { min-width:200px; }
+
+    @media (max-width: 820px) {
+      body { padding:12px; }
+      .title { font-size:28px; }
+      .form-grid { grid-template-columns:1fr; }
+      .session-grid { grid-template-columns:1fr; }
+      .panel, .header { padding:16px; }
+      .header-status { width:100%; }
+      .toggle-btn { width:100%; }
+      button { width:100%; }
+      .button-row { width:100%; }
+      .button-row button { flex:1 1 100%; }
+    }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="header">
+    <header class="header">
       <div>
+        <div class="eyebrow">Dashboard</div>
         <div class="title">Claude Launcher</div>
-        <div class="subtitle">multi-session dashboard grouped by workspot</div>
+        <div class="subtitle" id="header-subtitle">0 active sessions across all workspots</div>
       </div>
-      <div class="status-pill muted" id="last-refresh">refreshing…</div>
-    </div>
+      <div class="header-status">
+        <span class="subtitle-small">Last refresh</span>
+        <strong id="last-refresh">—</strong>
+        <span class="muted" id="refresh-note">waiting for data</span>
+      </div>
+    </header>
 
     <div id="message" class="message info" style="display:none"></div>
-    <div id="workspots" class="grid"></div>
+    <div id="workspots" class="workspot-list"></div>
+    <div class="history-footer">
+      <button id="history-toggle" class="ghost toggle-btn" onclick="toggleHistory()">Show History</button>
+    </div>
   </div>
 
   <script>
     const workspotsEl = document.getElementById('workspots');
     const messageEl = document.getElementById('message');
     const refreshEl = document.getElementById('last-refresh');
+    const refreshNoteEl = document.getElementById('refresh-note');
+    const headerSubtitleEl = document.getElementById('header-subtitle');
+    const historyToggleEl = document.getElementById('history-toggle');
+
     let workspots = [];
     let sessions = [];
+    let showHistory = false;
     let refreshTimer = null;
     let lastSessionFingerprint = '';
 
@@ -107,113 +229,149 @@
       if (status === 'running') return 'badge green';
       if (status === 'pending') return 'badge yellow';
       if (status === 'failed') return 'badge red';
+      if (status === 'stopped') return 'badge';
       return 'badge';
     }
 
-    function groupedSessions() {
+    function activeSessions() {
+      return sessions.filter(session => ['running', 'pending'].includes(session.status));
+    }
+
+    function historySessions() {
+      return sessions.filter(session => ['stopped', 'failed'].includes(session.status));
+    }
+
+    function groupedSessions(sourceSessions) {
       const grouped = Object.fromEntries(workspots.map(ws => [ws.name, []]));
-      sessions.forEach(session => {
+      sourceSessions.forEach(session => {
         if (!grouped[session.workspot]) grouped[session.workspot] = [];
         grouped[session.workspot].push(session);
       });
       return grouped;
     }
 
+    function formatTimestamp(value) {
+      if (!value) return 'Unknown time';
+      try {
+        return new Date(value).toLocaleString();
+      } catch {
+        return value;
+      }
+    }
+
+    function updateHeader() {
+      const activeCount = activeSessions().length;
+      headerSubtitleEl.textContent = `${activeCount} active session${activeCount === 1 ? '' : 's'} across all workspots`;
+      historyToggleEl.textContent = showHistory
+        ? `Hide History (${historySessions().length})`
+        : `Show History (${historySessions().length})`;
+    }
+
     function render() {
-      const grouped = groupedSessions();
+      const activeGrouped = groupedSessions(activeSessions());
+      const historyGrouped = groupedSessions(historySessions());
+
       workspotsEl.innerHTML = workspots.map(ws => {
-        const wsSessions = grouped[ws.name] || [];
+        const active = activeGrouped[ws.name] || [];
+        const history = historyGrouped[ws.name] || [];
         return `
           <section class="panel">
             <div class="panel-head">
               <div>
                 <div class="panel-title">${escapeHtml(ws.name)}</div>
-                <div class="subtitle">${escapeHtml(ws.runtime)} · ${escapeHtml(ws.dir)}</div>
+                <div class="meta-text">${escapeHtml(ws.runtime)} · ${escapeHtml(ws.dir)}</div>
               </div>
               <div class="badge-row">
+                <span class="badge">${active.length} active</span>
                 <span class="badge">capacity ${escapeHtml(ws.server_capacity)}</span>
-                ${ws.claude_bin ? `<span class="badge accent">${escapeHtml(ws.claude_bin)}</span>` : ''}
               </div>
             </div>
 
-            <div class="form-grid">
-              <label class="full">Existing directory
-                <input id="dir-${escapeHtml(ws.name)}" placeholder="${escapeHtml(ws.dir)}" />
-              </label>
-              <label>Branch (optional)
-                <input id="branch-${escapeHtml(ws.name)}" placeholder="feature/foo" />
-              </label>
-              <label>Label (optional)
-                <input id="label-${escapeHtml(ws.name)}" placeholder="auth bugfix" />
-              </label>
+            <div class="form-card">
+              <div class="section-title">Start a session</div>
+              <div class="form-grid">
+                <label>Workspot
+                  <select id="workspot-${escapeHtml(ws.name)}" disabled>
+                    <option>${escapeHtml(ws.name)}</option>
+                  </select>
+                </label>
+                <label>Label (optional)
+                  <input id="label-${escapeHtml(ws.name)}" placeholder="bugfix, review, docs" />
+                </label>
+                <label>Branch (optional)
+                  <input id="branch-${escapeHtml(ws.name)}" placeholder="feature/foo" />
+                </label>
+                <button class="primary" onclick="createSession('${escapeHtml(ws.name)}')">Start</button>
+              </div>
             </div>
 
-            <div class="actions">
-              <button class="primary" onclick="createSession('${escapeHtml(ws.name)}', false)">Start session</button>
-              <button onclick="createSession('${escapeHtml(ws.name)}', true)">New worktree session</button>
-              <button onclick="refreshData(false)">Refresh</button>
+            <div>
+              <div class="section-title">Active sessions</div>
+              <div class="session-list" style="margin-top:12px;">
+                ${active.length ? active.map(session => renderSessionCard(session, false)).join('') : '<div class="empty">No running or pending sessions.</div>'}
+              </div>
             </div>
 
-            <div class="session-list">
-              ${wsSessions.length ? wsSessions.map(renderSessionCard).join('') : '<div class="empty">No sessions yet for this workspot.</div>'}
-            </div>
+            ${showHistory ? `
+              <div>
+                <div class="section-title">History</div>
+                <div class="session-list" style="margin-top:12px;">
+                  ${history.length ? history.map(session => renderSessionCard(session, true)).join('') : '<div class="empty">No stopped sessions yet.</div>'}
+                </div>
+              </div>
+            ` : ''}
           </section>
         `;
       }).join('');
+
+      updateHeader();
     }
 
-    function renderSessionCard(session) {
+    function renderSessionCard(session, isHistory) {
       const urlCell = session.url
         ? `<a class="kv-value url" href="${escapeHtml(session.url)}" target="_blank" rel="noopener">${escapeHtml(session.url)}</a>`
-        : '<span class="kv-value">waiting for URL…</span>';
+        : '<span class="kv-value">No URL captured</span>';
       return `
         <article class="session-card">
           <div class="session-head">
             <div class="session-name">${escapeHtml(session.label || session.id)}</div>
-            <div class="badge-row">
-              <span class="${badgeForStatus(session.status)}">${escapeHtml(session.status)}</span>
-              ${session.branch ? `<span class="badge accent">${escapeHtml(session.branch)}</span>` : ''}
-            </div>
+            <span class="${badgeForStatus(session.status)}">${escapeHtml(session.status)}</span>
           </div>
-          <div class="session-meta">
+          <div class="session-grid">
             <div class="kv">
               <span class="kv-label">URL</span>
               ${urlCell}
             </div>
-          </div>
-          <div class="session-meta">
             <div class="kv">
-              <span class="kv-label">Working dir</span>
-              <span class="kv-value">${escapeHtml(session.working_dir || '')}</span>
+              <span class="kv-label">Branch</span>
+              <span class="kv-value">${escapeHtml(session.branch || '—')}</span>
+            </div>
+            <div class="button-row">
+              ${!isHistory ? `<button class="danger" onclick="killSession('${escapeHtml(session.id)}')">Kill</button>` : `<button class="danger" onclick="deleteSession('${escapeHtml(session.id)}')">Delete</button>`}
             </div>
           </div>
-          <div class="session-actions">
-            <div class="subtitle">${escapeHtml(new Date(session.created_at).toLocaleString())}</div>
-            <div class="actions">
-              ${session.url ? `<button onclick="window.open('${escapeHtml(session.url)}', '_blank', 'noopener')">Open</button>` : ''}
-              ${session.url ? `<button onclick="navigator.clipboard.writeText('${escapeHtml(session.url)}')">Copy URL</button>` : ''}
-              <button class="danger" onclick="killSession('${escapeHtml(session.id)}')">Kill</button>
-            </div>
+          <div class="session-footer">
+            <span class="meta-text">${escapeHtml(formatTimestamp(session.created_at))}</span>
+            <span class="meta-text">${escapeHtml(session.id)}</span>
           </div>
         </article>
       `;
     }
 
-    async function createSession(workspot, worktree) {
-      const directory = document.getElementById(`dir-${workspot}`).value.trim();
+    async function createSession(workspot) {
       const branch = document.getElementById(`branch-${workspot}`).value.trim();
       const label = document.getElementById(`label-${workspot}`).value.trim();
-      showMessage(worktree ? 'Starting worktree session…' : 'Starting session…');
+      showMessage('Starting session…');
       try {
-        const res = await fetch(worktree ? '/start-worktree' : '/api/sessions', {
+        const res = await fetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             workspot,
-            worktree,
-            directory: directory || null,
+            worktree: false,
             branch: branch || null,
             label: label || null,
+            directory: null,
           }),
         });
         const data = await res.json();
@@ -221,13 +379,11 @@
           showMessage(data.message || 'Failed to start session.', 'error');
           return;
         }
-        if (data.pending_url) {
-          showMessage(data.message || 'Session started and is waiting for URL capture.');
-        } else {
-          showMessage(`Session ready: ${data.session?.label || workspot}`);
-        }
+        showMessage(data.pending_url
+          ? (data.message || 'Session started and is waiting for URL capture.')
+          : `Session ready: ${data.session?.label || workspot}`);
         await refreshData(true);
-      } catch (error) {
+      } catch {
         showMessage('Could not reach launcher server.', 'error');
       }
     }
@@ -247,6 +403,26 @@
       }
     }
 
+    async function deleteSession(sessionId) {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.status !== 'ok') {
+          showMessage(data.message || 'Failed to delete session.', 'error');
+          return;
+        }
+        showMessage(`Deleted session ${sessionId}`);
+        await refreshData(false);
+      } catch {
+        showMessage('Could not delete session.', 'error');
+      }
+    }
+
+    function toggleHistory() {
+      showHistory = !showHistory;
+      render();
+    }
+
     async function refreshData(boostPoll = false) {
       const [workspotsRes, sessionsRes] = await Promise.all([
         fetch('/api/workspots'),
@@ -254,14 +430,16 @@
       ]);
       workspots = await workspotsRes.json();
       sessions = await sessionsRes.json();
-      refreshEl.textContent = `updated ${new Date().toLocaleTimeString()}`;
+      refreshEl.textContent = new Date().toLocaleTimeString();
+      refreshNoteEl.textContent = `${activeSessions().length} active · ${historySessions().length} in history`;
+
       const fingerprint = JSON.stringify(sessions.map(s => [s.id, s.status, s.url]));
       if (fingerprint !== lastSessionFingerprint && sessions.some(s => s.url)) {
         showMessage(`Dashboard refreshed — ${sessions.filter(s => s.url).length} session URL(s) captured.`);
       }
       lastSessionFingerprint = fingerprint;
       render();
-      schedulePoll(boostPoll || sessions.some(s => s.status === 'pending' && !s.url));
+      schedulePoll(boostPoll || activeSessions().some(s => s.status === 'pending' && !s.url));
     }
 
     function schedulePoll(fast) {
