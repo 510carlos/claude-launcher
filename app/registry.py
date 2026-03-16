@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from models import RegistryState, ServerRecord, SessionRecord
+from app.models import RegistryState, ServerRecord, SessionRecord
 
 
 class SessionRegistry:

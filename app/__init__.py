@@ -1,0 +1,1 @@
+"""Claude Launcher application package."""

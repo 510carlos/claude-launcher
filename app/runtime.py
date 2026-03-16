@@ -4,7 +4,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Optional, Protocol
 
-from models import RuntimeType, Workspot
+from app.models import RuntimeType, Workspot
 
 
 @dataclass

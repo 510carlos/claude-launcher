@@ -8,7 +8,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from models import Workspot
+from app.models import Workspot
 
 load_dotenv()
 
