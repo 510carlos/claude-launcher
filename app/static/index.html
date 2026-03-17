@@ -555,12 +555,12 @@
 
     function isHealthy(ws) {
       const h = healthOf(ws.name);
-      return !!(h && h.runtime_ok && h.repo_exists && h.git_ok && h.claude_bin_ok && h.auth_ok && h.trusted !== false);
+      return !!(h && h.runtime_ok && h.repo_exists && h.git_ok && h.claude_bin_ok && h.auth_ok);
     }
 
     function statusPill(health) {
       if (!health) return '<span class="pill">Unknown</span>';
-      if (!health.runtime_ok || !health.repo_exists || !health.git_ok || !health.claude_bin_ok || !health.auth_ok || health.trusted === false)
+      if (!health.runtime_ok || !health.repo_exists || !health.git_ok || !health.claude_bin_ok || !health.auth_ok)
         return '<span class="pill pill-red">Needs attention</span>';
       return '<span class="pill pill-green">Ready</span>';
     }
@@ -571,7 +571,6 @@
       const e = [];
       if (!h.claude_bin_ok) e.push('Claude CLI not found');
       if (!h.auth_ok) e.push('Not authenticated');
-      if (h.trusted === false) e.push('Workspace not trusted \u2014 run claude interactively first');
       if (!h.git_ok) e.push('Git not available');
       if (!h.repo_exists) e.push('Directory not found');
       if (!h.runtime_ok) e.push(ws.runtime === 'host' ? 'Host unreachable' : 'Container not running');
@@ -725,6 +724,7 @@
             <div class="actions">
               <button class="btn btn-primary btn-sm" onclick="quickLaunch('${esc(ws.name)}')" ${ok ? '' : 'disabled'}>Launch</button>
               <button class="btn btn-ghost btn-sm" onclick="toggleOptions('${esc(ws.name)}')" ${ok ? '' : 'disabled'}>Options</button>
+              ${!ok ? `<button class="btn btn-primary btn-sm" onclick="fixWorkspot('${esc(ws.name)}')">Fix</button><button class="btn btn-ghost btn-sm" onclick="recheckWorkspot('${esc(ws.name)}')">Recheck</button>` : ''}
               ${ws.source === 'file' ? `<button class="btn btn-danger btn-sm" onclick="removeWorkspot('${esc(ws.name)}')">Remove</button>` : ''}
             </div>
 
@@ -1017,6 +1017,48 @@
       } catch (e) { console.error(e); showNotice('Failed to add.', 'error'); }
     }
 
+    async function fixWorkspot(name) {
+      showNotice(`Fixing ${name}...`, 'info');
+      try {
+        const res = await fetch(`/api/workspots/${encodeURIComponent(name)}/fix`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status !== 'ok') { showNotice(data.message || 'Fix failed.', 'error'); return; }
+        // Update health
+        if (data.health) {
+          const idx = state.workspaceHealth.findIndex(h => h.workspot === name);
+          if (idx >= 0) state.workspaceHealth[idx] = data.health;
+          else state.workspaceHealth.push(data.health);
+        }
+        _dataHash = '';
+        render();
+        const fixes = data.fixes || [];
+        const remaining = (data.health?.issues || []);
+        if (fixes.length && !remaining.length) {
+          showNotice(`Fixed ${name}: ${fixes.join(', ')}`, 'info');
+        } else if (fixes.length) {
+          showNotice(`Partially fixed: ${fixes.join(', ')}. Remaining: ${remaining[0]}`, 'error');
+        } else {
+          showNotice(`Could not auto-fix ${name}. ${remaining[0] || ''}`, 'error');
+        }
+      } catch (e) { console.error(e); showNotice('Fix failed.', 'error'); }
+    }
+
+    async function recheckWorkspot(name) {
+      showNotice(`Rechecking ${name}...`, 'info');
+      try {
+        const res = await fetch(`/api/workspots/${encodeURIComponent(name)}/recheck`, { method: 'POST' });
+        const health = await res.json();
+        // Update just this workspot's health in state
+        const idx = state.workspaceHealth.findIndex(h => h.workspot === name);
+        if (idx >= 0) state.workspaceHealth[idx] = health;
+        else state.workspaceHealth.push(health);
+        _dataHash = '';
+        render();
+        const issues = health.issues || [];
+        showNotice(issues.length ? `${name}: ${issues[0]}` : `${name} is ready!`, issues.length ? 'error' : 'info');
+      } catch (e) { console.error(e); showNotice('Recheck failed.', 'error'); }
+    }
+
     async function removeWorkspot(name) {
       state.workspaces = state.workspaces.filter(w => w.name !== name);
       renderWorkspaces(); updateNav();
@@ -1157,6 +1199,8 @@
     window.clearEndedSessions = clearEndedSessions;
     window.runDiscovery = runDiscovery;
     window.addWorkspot = addWorkspot;
+    window.fixWorkspot = fixWorkspot;
+    window.recheckWorkspot = recheckWorkspot;
     window.removeWorkspot = removeWorkspot;
     window.toggleRecent = toggleRecent;
     window.setRoute = setRoute;

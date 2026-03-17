@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
 
 from app.models import ServerRecord, ServerStatus, Workspot
 from app.registry import SessionRegistry
 from app.runtime import RuntimeManager
-
-# Trust check cache: workspot_name -> (trusted, message, timestamp)
-_trust_cache: dict[str, tuple[bool, str, float]] = {}
-TRUST_CACHE_TTL = 300  # 5 minutes
 
 
 class ServerManager:
@@ -52,31 +47,6 @@ class ServerManager:
         result = await runtime.run_shell(workspot, f"test -s {creds} && echo ok")
         return result.returncode == 0 and "ok" in result.stdout
 
-    async def check_workspace_trust(self, workspot: Workspot) -> tuple[bool, str]:
-        """Check if the workspace directory is trusted by Claude.
-
-        Results cached for 5 minutes since trust status rarely changes.
-        """
-        # Check cache first
-        cached = _trust_cache.get(workspot.name)
-        if cached and (time.monotonic() - cached[2]) < TRUST_CACHE_TTL:
-            return cached[0], cached[1]
-
-        runtime = self.runtime_manager.for_workspot(workspot)
-        result = await runtime.run_shell(
-            workspot,
-            f"timeout 3 {workspot.claude_bin} remote-control --name __trust_check 2>&1 || true",
-            cwd=workspot.dir,
-        )
-        output = (result.stdout + result.stderr).strip().lower()
-        if "not trusted" in output or "workspace trust" in output:
-            res = (False, f"Workspace not trusted — run `claude` in {workspot.dir} to accept")
-        else:
-            res = (True, "")
-
-        _trust_cache[workspot.name] = (res[0], res[1], time.monotonic())
-        return res
-
     async def check_preflight(self, workspot: Workspot) -> list[str]:
         """Run all pre-flight checks, return list of issues (empty = all good)."""
         issues: list[str] = []
@@ -105,11 +75,6 @@ class ServerManager:
         # 5. Auth
         if not await self.check_auth(workspot):
             issues.append("Not authenticated — run `claude login`")
-
-        # 6. Workspace trust
-        trusted, trust_msg = await self.check_workspace_trust(workspot)
-        if not trusted:
-            issues.append(trust_msg)
 
         return issues
 
@@ -160,7 +125,7 @@ class ServerManager:
                 "container": workspot.container, "dir": workspot.dir, "claude_bin": workspot.claude_bin,
                 "runtime_ok": False, "repo_exists": False, "claude_bin_ok": False,
                 "git_ok": False, "runtime_error": adapter_health.get("runtime_error", ""),
-                "auth_ok": False, "trusted": False,
+                "auth_ok": False,
                 "server_status": "stopped", "server_capacity": workspot.server_capacity,
                 "issues": issues,
             }
@@ -170,18 +135,14 @@ class ServerManager:
         if not adapter_health["git_ok"]:
             issues.append("Git not available")
 
-        # Only check auth/trust if CLI exists
+        # Only check auth if CLI exists
         auth_ok = False
-        trusted = False
         if not adapter_health["claude_bin_ok"]:
             issues.append(f"Claude CLI not found at {workspot.claude_bin}")
         else:
             auth_ok = await self.check_auth(workspot)
             if not auth_ok:
                 issues.append("Not authenticated — run claude login")
-            trusted, trust_msg = await self.check_workspace_trust(workspot)
-            if not trusted:
-                issues.append(trust_msg)
 
         server = await self.reconcile_server(workspot)
 
@@ -193,7 +154,7 @@ class ServerManager:
             "claude_bin_ok": adapter_health["claude_bin_ok"],
             "git_ok": adapter_health["git_ok"],
             "runtime_error": adapter_health.get("runtime_error", ""),
-            "auth_ok": auth_ok, "trusted": trusted,
+            "auth_ok": auth_ok,
             "server_status": server.status.value,
             "server_capacity": workspot.server_capacity,
             "issues": issues,

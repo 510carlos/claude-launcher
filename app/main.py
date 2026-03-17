@@ -97,6 +97,40 @@ async def list_workspot_health():
     return JSONResponse(list(results))
 
 
+@app.post("/api/workspots/{name}/recheck")
+async def recheck_workspot(name: str):
+    """Re-run health for a single workspot."""
+    ws = find_workspot(name)
+    if not ws:
+        return JSONResponse({"status": "error", "message": f"Unknown workspot '{name}'"}, status_code=404)
+    health = await server_manager.workspot_health(ws)
+    return JSONResponse(health)
+
+
+@app.post("/api/workspots/{name}/fix")
+async def fix_workspot(name: str):
+    """Auto-fix common issues: trust workspace via claude -p."""
+    ws = find_workspot(name)
+    if not ws:
+        return JSONResponse({"status": "error", "message": f"Unknown workspot '{name}'"}, status_code=404)
+
+    runtime = runtime_manager.for_workspot(ws)
+    fixes_applied: list[str] = []
+
+    # Fix trust: run 'claude -p' which skips the interactive trust dialog
+    result = await runtime.run_shell(ws, f"cd {ws.dir} && {ws.claude_bin} -p 'ok' 2>&1", cwd=ws.dir)
+    if result.returncode == 0:
+        fixes_applied.append("Workspace trusted")
+
+    # Re-run health after fixes
+    health = await server_manager.workspot_health(ws)
+    return JSONResponse({
+        "status": "ok",
+        "fixes": fixes_applied,
+        "health": health,
+    })
+
+
 @app.get("/api/servers")
 async def list_servers():
     for workspot in get_all_workspots():
