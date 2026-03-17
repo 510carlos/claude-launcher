@@ -1,20 +1,22 @@
 # Claude Launcher
 
-The missing piece between your development environments and the Claude app on your phone.
+**Start Claude Code sessions on your dev machines from your phone. One tap. Any workspace. No laptop required.**
 
-Claude Launcher doesn't rebuild Claude's UI. It runs `claude remote-control` inside your devcontainers and workspaces, and hands you the URL. You use the **real Claude app** — on your phone, tablet, or browser — connected directly to your actual dev environment.
+When you're at your computer, Claude Code is easy — terminal, files, everything right there. But when you're away from your desk — on the couch, commuting, at lunch — you're locked out. You can't SSH into your dev machine from your phone. You can't run `claude remote-control`. You can't pick which repo or branch to work in.
+
+Claude Launcher fixes that. It's a lightweight dashboard that runs on your dev machine, reachable via Tailscale from your phone. Tap a workspace, get a URL, open it in the Claude app. You're coding in your actual dev environment from your phone in seconds.
 
 ```
 Phone → Tailscale → Claude Launcher → docker exec / local shell → claude remote-control → URL → Claude app
 ```
 
-**One tap. Real Claude UI. Your code.**
+**No custom chat UI. No terminal emulators. Just the real Claude app, connected to your real code.**
 
 ## How This Is Different
 
 Every other project in this space rebuilds the chat interface — custom web UIs, xterm.js terminal emulators, Electron wrappers, Tauri apps. They put a middleman between you and Claude.
 
-Claude Launcher doesn't do that. It's a **session orchestrator**, not a chat client. It solves one problem: getting a `claude remote-control` URL from the right environment to your phone, fast.
+Claude Launcher doesn't do that. It's a **session orchestrator**, not a chat client. It solves one problem: getting you from your phone to your dev environment through Claude, fast.
 
 | | Claude Launcher | Other tools |
 |---|---|---|
