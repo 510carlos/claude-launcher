@@ -66,6 +66,24 @@ Start the server:
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
 ```
 
+**Auto-start on boot (recommended):**
+
+```bash
+# Create systemd user service
+mkdir -p ~/.config/systemd/user
+cp docs/claude-launcher.service ~/.config/systemd/user/
+
+# Enable and start
+systemctl --user daemon-reload
+systemctl --user enable claude-launcher
+systemctl --user start claude-launcher
+
+# Persist across reboots (even before login)
+loginctl enable-linger $USER
+```
+
+Manage with: `systemctl --user status|stop|restart claude-launcher`
+
 ### Option B: Docker Compose
 
 ```bash
