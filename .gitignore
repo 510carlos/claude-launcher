@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+
+# Frontend build artifacts
+app/frontend/node_modules/
+app/frontend/dist/
+app/frontend/.vite/

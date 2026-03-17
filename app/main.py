@@ -46,8 +46,19 @@ def find_workspot(name: str) -> Workspot | None:
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
+BUILD_DIR = APP_DIR / "frontend" / "dist"
 
 app = FastAPI()
+
+_use_build = BUILD_DIR.exists() and (BUILD_DIR / "index.html").exists()
+
+# Serve built frontend assets if available, otherwise legacy static
+if _use_build:
+    log.info("Serving built frontend from %s", BUILD_DIR)
+    if (BUILD_DIR / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=BUILD_DIR / "assets"), name="assets")
+else:
+    log.info("No built frontend found, serving legacy static files")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -68,10 +79,37 @@ async def start_reconciler():
     asyncio.create_task(_reconcile_loop())
 
 
+def _resolve_static(filename: str) -> Path:
+    """Resolve a static file from build dir or legacy static dir."""
+    if _use_build and (BUILD_DIR / filename).exists():
+        return BUILD_DIR / filename
+    return STATIC_DIR / filename
+
+
 @app.get("/")
 @app.get("/sessions")
 async def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(_resolve_static("index.html"))
+
+
+@app.get("/manifest.json")
+async def manifest():
+    return FileResponse(_resolve_static("manifest.json"))
+
+
+@app.get("/sw.js")
+async def service_worker():
+    return FileResponse(_resolve_static("sw.js"), media_type="application/javascript")
+
+
+@app.get("/icon-192.png")
+async def icon_192():
+    return FileResponse(_resolve_static("icon-192.png"), media_type="image/png")
+
+
+@app.get("/icon-512.png")
+async def icon_512():
+    return FileResponse(_resolve_static("icon-512.png"), media_type="image/png")
 
 
 @app.get("/api/workspots")
