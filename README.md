@@ -23,42 +23,55 @@ Claude Launcher doesn't do that. It's a **session orchestrator**, not a chat cli
 | **Chat UI** | The real Claude app (claude.ai / mobile) | Custom-built web or desktop UI |
 | **What it does** | Spawns `claude remote-control`, returns the URL | Wraps the CLI, renders output in its own interface |
 | **Phone experience** | Native Claude app with full features | Browser tab with a custom UI |
-| **Complexity** | 3 Python deps, vanilla JS, no build step | Next.js, Electron, Tauri, React, xterm.js, etc. |
 | **Multi-environment** | Docker containers + host machines from one dashboard | Usually single-machine |
 
 This means you get all of Claude's features — tool use, artifacts, conversation history, mobile notifications — without any re-implementation. When Anthropic ships improvements to the Claude app, you get them immediately.
 
 ## Features
 
+- **One-tap launch** — Tap a workspace, get a Claude session. Random labels auto-generated so you don't have to type on your phone
 - **Multi-workspace dashboard** — Manage devcontainers and local directories from one place
-- **Health monitoring** — See which workspaces are healthy, authenticated, and ready
-- **Parallel sessions** — Multiple sessions per workspace, or isolated git worktree branches
-- **Mobile-first PWA** — Installable on your home screen, designed for phone-sized screens
+- **Health monitoring** — See which workspaces are healthy, authenticated, and ready. Fix issues with one tap
+- **Worktree isolation** — Toggle "Use worktree" for isolated branches via Claude's native `--spawn worktree`
+- **Auto-discovery** — Scans Docker containers and local repos to find compatible workspaces
+- **Session lifecycle** — Start, monitor output, stop, and clean up sessions
+- **Background reconciler** — Automatically detects when sessions start, get URLs, or die
+- **Real process kill** — SIGTERM for graceful cleanup, SIGKILL as fallback. Claude deregisters from mobile app on clean shutdown
+- **Mobile-first PWA** — Installable on your home screen, optimistic updates, relative timestamps
 - **Docker + host runtimes** — Run in containers via `docker exec` or directly on the host
-- **Auto-discovery** — Scans Docker containers and local dirs to suggest new workspaces
-- **Session lifecycle** — Start, monitor, kill, and clean up sessions
-- **Webhook callbacks** — Hook-based URL capture via Claude's SessionStart hook
-- **Persistent state** — Survives container restarts
 - **Tailscale integration** — Secure access from any device on your tailnet
-- **Minimal** — FastAPI + vanilla JS, no build step, 3 Python dependencies
+- **Preact frontend** — TypeScript, Signals, Vite build. Legacy vanilla JS fallback included
 
 ## Prerequisites
 
-- **Docker** + **Docker Compose v2**
-- A running devcontainer (or local directory) with the [`claude` CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated
+- The [`claude` CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated in your target environments
 - A [Tailscale](https://tailscale.com) account (for remote access; optional for local-only use)
+- **For container workspaces:** Docker with running devcontainers
+- **For host workspaces:** Python 3.10+ with `pip install fastapi uvicorn python-dotenv`
 
 ## Quick Start
 
+### Option A: Native (WSL / Linux / macOS)
+
 ```bash
-git clone https://github.com/your-org/claude-launcher.git
+git clone https://github.com/510carlos/claude-launcher.git
 cd claude-launcher
-cp .env.example .env
+pip install fastapi uvicorn python-dotenv
+cp .env.example .env   # edit with your workspots, or leave empty and use Discovery
 ```
 
-Edit `.env` with your workspot definitions (see [Configuration](#configuration) below), then:
+Start the server:
 
 ```bash
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
+```
+
+### Option B: Docker Compose
+
+```bash
+git clone https://github.com/510carlos/claude-launcher.git
+cd claude-launcher
+cp .env.example .env   # edit with your workspots
 docker compose up -d --build
 ```
 
@@ -67,7 +80,7 @@ The dashboard is now available at:
 - **Local**: http://localhost:8765
 - **Tailscale**: http://\<tailscale-ip\>:8765
 
-Open it on your phone, tap **Start Session** on a workspace, and you'll get a URL that opens directly in the Claude app.
+Open it on your phone, tap **Launch** on a workspace, and you'll get a URL that opens directly in the Claude app.
 
 ## Configuration
 
@@ -82,12 +95,15 @@ WORKSPOTS='[
   {
     "name": "my-project",
     "container": "devcontainer-app-1",
-    "dir": "/workspaces/my-project"
+    "dir": "/workspaces/my-project",
+    "claude_bin": "/home/node/.npm-global/bin/claude",
+    "env": {"HOME": "/home/node"}
   },
   {
-    "name": "local-scripts",
+    "name": "local-repo",
     "container": null,
-    "dir": "/home/user/scripts"
+    "dir": "/home/user/git/my-repo",
+    "runtime": "host"
   }
 ]'
 ```
@@ -104,13 +120,7 @@ Each workspot object supports:
 | `server_capacity` | No | Max concurrent sessions. Default: `32` |
 | `env` | No | Extra environment variables as `{"KEY": "value"}` |
 
-**Finding your container name:**
-
-```bash
-docker ps --format 'table {{.Names}}\t{{.Status}}'
-```
-
-**Workspace trust:** The working directory must have workspace trust accepted. Check the container's `~/.claude.json` for `hasTrustDialogAccepted: true`, or run `claude` interactively once to accept it.
+Or skip manual config entirely — set `WORKSPOTS=[]` and use the **Discover** feature to scan and add workspaces from the UI.
 
 ### Environment Variable Reference
 
@@ -119,28 +129,20 @@ docker ps --format 'table {{.Names}}\t{{.Status}}'
 | `WORKSPOTS` | `[]` | JSON array of workspot definitions (see above) |
 | `PORT` | `8765` | Dashboard port |
 | `URL_CAPTURE_TIMEOUT` | `30` | Seconds to wait for `claude remote-control` to output a URL |
-| `CLAUDE_GLOBAL_FLAGS` | `""` | Flags passed to `claude` before the subcommand (e.g. `--plugin-dir ...`) |
-| `CLAUDE_RC_FLAGS` | `""` | Flags passed to the `remote-control` subcommand (e.g. `--permission-mode bypassPermissions`) |
+| `CLAUDE_GLOBAL_FLAGS` | `""` | Flags passed before the subcommand |
+| `CLAUDE_RC_FLAGS` | `""` | Flags passed to `remote-control` (e.g. `--permission-mode bypassPermissions`) |
 | `MAX_SESSIONS` | `10` | Number of recent sessions to keep in history |
 | `DEFAULT_SERVER_CAPACITY` | `32` | Default max concurrent sessions per workspot |
+| `DEFAULT_CLAUDE_BIN` | `claude` | Default Claude binary path for new workspots |
 | `SESSION_REGISTRY_FILE` | `/data/session-registry.json` | Path to session registry |
 | `SESSION_HISTORY_FILE` | `/data/sessions.json` | Path to session history |
 | `WORKSPOT_CONFIG_FILE` | `/data/workspots.json` | Path to file-backed workspot store |
 | `DISCOVERY_SCAN_DIRS` | `~/git/` | Comma-separated directories for auto-discovery |
-| `DISCOVERY_DOCKER_ENABLED` | `true` | Enable Docker container auto-discovery |
-| `DISCOVERY_LOCAL_ENABLED` | `true` | Enable local directory auto-discovery |
+| `DISCOVERY_DOCKER_ENABLED` | `true` | Enable Docker container scanning |
+| `DISCOVERY_LOCAL_ENABLED` | `true` | Enable local directory scanning |
 | `TAILSCALE_AUTHKEY` | — | Tailscale auth key for remote access |
 | `TAILSCALE_HOSTNAME` | `claude-launcher` | Hostname shown in your Tailscale admin panel |
-| `TS_KEY_EXPIRES` | — | Auth key expiry date (ISO format, e.g. `2026-06-05`). Used for expiry warnings |
-
-### Legacy Variables
-
-These are supported for backward compatibility with single-workspot setups:
-
-| Variable | Description |
-|----------|-------------|
-| `DEVCONTAINER_NAME` | Container name (prefer `WORKSPOTS` instead) |
-| `WORKING_DIR` | Working directory inside the container |
+| `TS_KEY_EXPIRES` | — | Auth key expiry date |
 
 ## Tailscale Setup
 
@@ -150,57 +152,65 @@ Tailscale provides secure remote access so you can reach the launcher from your 
 2. Generate a **reusable** auth key tagged `tag:claude-launcher`
 3. Set `TAILSCALE_AUTHKEY` and `TS_KEY_EXPIRES` in `.env`
 
-**Recommended ACL** (lets your personal devices reach the launcher):
-
-```json
-{
-  "action": "accept",
-  "src": ["autogroup:member"],
-  "dst": ["tag:claude-launcher:8765"]
-}
-```
-
-**Rotating the key:**
-
-```bash
-# Update TAILSCALE_AUTHKEY and TS_KEY_EXPIRES in .env, then:
-docker compose down && docker compose up -d
-```
-
-> Always bring the full stack down before recreating. Using `--force-recreate` on only the tailscale service breaks `network_mode: service:claude-launcher`.
+For native setups, just run `tailscale login` on the machine.
 
 ## Usage
+
+### The Dashboard
+
+The launcher is a single-page app with two views:
+
+**Main view** (everything on one screen):
+- **Active Sessions** — Running and pending sessions at the top. Each shows an "Open in Claude" button with the session URL. Auto-hidden when empty.
+- **Workspaces** — Your configured environments. Green = ready, red = needs attention.
+- **Recent** — Collapsed section at the bottom with stopped/failed sessions. Expandable. Has a "Clear" button for bulk cleanup.
+
+**Discover view** — Accessed via the "Discover" button in the top bar. Scans Docker containers and local repos, shows compatibility status, one-click add to workspaces.
 
 ### Starting a Session
 
 1. Open the dashboard on your phone
-2. On the **Workspaces** page, find your workspace (green = healthy)
-3. Tap **Start Session** — optionally add a label or branch name
-4. Wait a few seconds for the URL to appear
-5. Tap the URL — it opens in the Claude app, connected to your workspace
-
-From there you're in the real Claude interface with full access to your codebase.
+2. Find your workspace (green pill = ready)
+3. Tap **Launch** — starts immediately with a random label
+4. Or tap **Options** to customize: set a label, branch, or toggle worktree mode
+5. The session appears in Active Sessions with a progress indicator
+6. When ready, tap **Open in Claude** — opens the real Claude app connected to your code
 
 ### Worktree Sessions
 
-Tap **New Worktree Session** to create an isolated git worktree under `/tmp/claude-worktrees/` with an auto-generated branch name (`wt-YYYYMMDD-xxxx`). This lets you run parallel Claude sessions on separate branches without conflicts.
+Check "Use worktree (isolated copy off main)" in the Options form. This passes `--spawn worktree` to `claude remote-control`, which creates isolated git worktrees for each session. Branches are auto-named like `wt/swift-fix` or `wt/bold-review`.
+
+The launcher checks out `main` before starting so worktrees always branch off the default branch.
 
 ### Managing Sessions
 
-Switch to the **Sessions** page to see all sessions grouped by status (Running / Pending / Stopped). From here you can:
+- **Output** — Tap to see the raw `claude remote-control` output (ANSI-stripped)
+- **Stop** — Sends SIGTERM (graceful shutdown, Claude deregisters from mobile app), then SIGKILL after 2 seconds if needed
+- **Delete** — Removes the session record from the launcher
+- **Clear** — Bulk-delete all ended sessions at once
 
-- **Kill** a running session to stop the `claude remote-control` process
-- **Delete** stopped sessions to clean up history
+### Workspace Health
+
+Each workspace shows health status based on:
+- Runtime accessible (container running / host reachable)
+- Directory exists
+- Git available
+- Claude CLI found
+- Authentication credentials present
+
+If a workspace shows "Needs attention":
+- **Fix** — Attempts auto-repair (e.g. accepting workspace trust via `claude -p`)
+- **Recheck** — Re-runs health checks
 
 ### Auto-Discovery
 
-The launcher can scan your environment for potential workspaces that aren't configured yet. It checks Docker containers and local directories for:
+Tap **Discover** in the top bar to scan your environment:
 
-- Claude CLI availability
-- Git repositories
-- Authentication status
+- **Compatible** (green) — Has Claude CLI, git, and auth. Ready to add.
+- **Needs Setup** (yellow) — Missing one or more requirements.
+- **Not Ready** (gray) — Containers that are stopped or lack most requirements.
 
-Results are available via `GET /api/discover` and categorized as compatible, partial, or incompatible.
+Docker containers show Running/Stopped status with uptime. Local repos show as "Local". Tap **+ Add** to add any discovered environment to your workspaces.
 
 ## API Reference
 
@@ -214,6 +224,8 @@ All endpoints return JSON.
 | `GET` | `/api/workspots/health` | Health report for each workspot |
 | `POST` | `/api/workspots` | Add a new workspot (file-backed) |
 | `DELETE` | `/api/workspots/{name}` | Remove a file-backed workspot |
+| `POST` | `/api/workspots/{name}/recheck` | Re-run health for a single workspot |
+| `POST` | `/api/workspots/{name}/fix` | Auto-fix workspace issues (trust, etc.) |
 
 ### Sessions
 
@@ -221,37 +233,33 @@ All endpoints return JSON.
 |--------|----------|-------------|
 | `GET` | `/api/sessions` | List all sessions (optional `?workspot=name` filter) |
 | `GET` | `/api/sessions/{id}` | Get a single session |
-| `POST` | `/api/sessions` | Start a new session |
-| `POST` | `/api/sessions/{id}/kill` | Kill a running session |
-| `DELETE` | `/api/sessions/{id}` | Delete a session record |
+| `GET` | `/api/sessions/{id}/output` | Get session output (optional `?tail=N`, default 50) |
 | `GET` | `/api/sessions/live.json` | List only pending/running sessions |
-
-### Servers
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/servers` | List server records |
-| `POST` | `/api/servers/{workspot}/ensure` | Start or reconcile a workspot's server |
+| `POST` | `/api/sessions` | Start a new session |
+| `POST` | `/api/sessions/{id}/kill` | Stop a running session (SIGTERM + SIGKILL) |
+| `DELETE` | `/api/sessions/{id}` | Delete a session record |
+| `DELETE` | `/api/sessions` | Bulk delete all stopped/failed sessions |
 
 ### Other
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `GET` | `/api/servers` | List server records |
+| `POST` | `/api/servers/{workspot}/ensure` | Reconcile a workspot's server |
+| `GET` | `/api/discover` | Auto-discover potential workspaces |
 | `GET` | `/status` | Quick status summary per workspot |
 | `POST` | `/api/hooks/session-start` | Webhook for session URL callbacks |
-| `GET` | `/api/discover` | Auto-discover potential workspaces |
 | `POST` | `/kill` | Kill all sessions for a workspot |
-| `POST` | `/start-worktree` | Start a worktree session |
 
 ### Starting a Session via API
 
 ```bash
 curl -X POST http://localhost:8765/api/sessions \
   -H "Content-Type: application/json" \
-  -d '{"workspot": "my-project"}'
+  -d '{"workspot": "my-project", "label": "auth-refactor", "worktree": true}'
 ```
 
-Optional fields: `label` (string), `branch` (string), `worktree` (boolean).
+Fields: `workspot` (required), `label` (string), `branch` (string), `worktree` (boolean), `directory` (string).
 
 ## Architecture
 
@@ -261,32 +269,39 @@ Optional fields: `label` (string), `branch` (string), `worktree` (boolean).
 │  (Claude Launcher    │          │  (claude.ai / mobile) │
 │   dashboard PWA)     │          │                      │
 └─────────┬───────────┘          └──────────▲───────────┘
-          │ tap "Start Session"             │ tap the URL
-          │                                 │
-          │ Tailscale VPN                   │
-┌─────────▼─────────────────────────────────┼───────────┐
-│  Claude Launcher (FastAPI)                │           │
-│                                           │           │
-│  ┌──────────────┐  ┌──────────────┐       │           │
-│  │ SessionMgr   │  │ ServerMgr    │       │           │
-│  │ (lifecycle)  │  │ (health/PID) │       │           │
-│  └──────┬───────┘  └──────┬───────┘       │           │
-│         │                 │               │           │
-│  ┌──────▼─────────────────▼───────┐       │           │
-│  │  RuntimeManager                │       │           │
-│  │  ┌─────────────┐ ┌──────────┐ │       │           │
-│  │  │DockerAdapter│ │HostAdapt.│ │       │           │
-│  │  └──────┬──────┘ └────┬─────┘ │       │           │
-│  └─────────┼─────────────┼───────┘       │           │
+          │ tap "Launch"                    │ tap the URL
+          │                                │
+          │ Tailscale VPN                  │
+┌─────────▼────────────────────────────────┼───────────┐
+│  Claude Launcher (FastAPI)               │           │
+│                                          │           │
+│  ┌──────────────┐  ┌──────────────┐      │           │
+│  │ SessionMgr   │  │ ServerMgr    │      │           │
+│  │ (lifecycle)  │  │ (health/PID) │      │           │
+│  └──────┬───────┘  └──────┬───────┘      │           │
+│         │     ┌────────────┘             │           │
+│  ┌──────▼─────▼─────────────────┐        │           │
+│  │  Reconciler (background)     │        │           │
+│  │  every 12s: check pending,   │        │           │
+│  │  detect dead processes       │        │           │
+│  └──────┬───────────────────────┘        │           │
+│         │                                │           │
+│  ┌──────▼───────────────────────┐        │           │
+│  │  RuntimeManager              │        │           │
+│  │  ┌─────────────┐ ┌────────┐  │        │           │
+│  │  │DockerAdapter│ │HostAdpt│  │        │           │
+│  │  └──────┬──────┘ └───┬────┘  │        │           │
+│  └─────────┼─────────────┼──────┘        │           │
 │            │             │               │           │
 │  ┌─────────▼──┐  ┌──────▼────────┐      │           │
 │  │docker exec │  │ local shell   │      │           │
 │  │claude      │  │claude         │      │           │
 │  │remote-ctrl │  │remote-ctrl    │──────┘           │
 │  └────────────┘  └───────────────┘  returns URL     │
-│                                                      │
-│  Persistence: /data/*.json (Docker volume)           │
-└──────────────────────────────────────────────────────┘
+│                                                     │
+│  Registry: /data/*.json (file-locked via fcntl)     │
+│  Frontend: Preact + Signals (Vite build)            │
+└─────────────────────────────────────────────────────┘
 ```
 
 The launcher **never touches your conversations**. It only starts the `remote-control` process and captures the URL. All chat traffic flows directly between the Claude app and your environment.
@@ -295,65 +310,62 @@ The launcher **never touches your conversations**. It only starts the `remote-co
 
 | Module | Role |
 |--------|------|
-| `main.py` | FastAPI routes, app initialization |
+| `main.py` | FastAPI routes, reconciler startup, static file serving |
 | `config.py` | Loads and validates `.env` configuration |
-| `models.py` | Pydantic models for workspots, sessions, servers |
-| `runtime.py` | Docker and host runtime adapters |
-| `session_manager.py` | Session creation, polling, and cleanup |
-| `server_manager.py` | Server health checks, process tracking |
-| `registry.py` | JSON-based persistence for sessions and servers |
-| `discovery.py` | Auto-discovery of containers and local repos |
-| `workspot_store.py` | File-backed workspot CRUD |
+| `models.py` | Pydantic models for workspots, sessions, servers, discovery |
+| `runtime.py` | Docker and host runtime adapters (env isolation) |
+| `session_manager.py` | Session creation, launch, kill, output, reconciliation |
+| `server_manager.py` | Health checks, preflight validation, process tracking |
+| `registry.py` | JSON-based persistence with file locking (fcntl) |
+| `discovery.py` | Docker container + local repo scanning |
+| `workspot_store.py` | File-backed workspot CRUD (add/remove from UI) |
 | `hook_ingest.py` | Webhook handler for session callbacks |
+
+### Frontend
+
+The frontend has two implementations:
+
+- **Preact + Signals** (`app/frontend/`) — TypeScript, component architecture, Vite build. 14 KB gzipped.
+- **Legacy vanilla JS** (`app/static/index.html`) — Single-file fallback, no build step.
+
+The server auto-detects which to serve: if `app/frontend/dist/` exists, it serves the built frontend. Otherwise, the legacy file.
 
 ## Logs and Troubleshooting
 
-### Viewing Logs
-
-```bash
-docker compose logs -f                    # All services
-docker compose logs -f claude-launcher    # Launcher only
-```
-
 ### Common Issues
 
-**"No workspots configured"**
-Check that `WORKSPOTS` is valid JSON in your `.env`. Use `docker compose logs` to see parse errors.
-
 **Session stays "pending"**
-- The `claude` CLI may not be installed or not in `$PATH` inside the container. Set `claude_bin` to the full path (e.g. `/home/node/.local/bin/claude`).
-- Workspace trust may not be accepted. Run `claude` interactively once in the working directory.
-- Check `URL_CAPTURE_TIMEOUT` — increase it if your environment is slow to start.
+- The background reconciler checks every 12 seconds. If the URL appears in the output file, it auto-promotes to "running".
+- If the output contains errors (trust, auth, etc.), it auto-marks as "failed".
+- Check the session output via the "Output" button for details.
 
-**Health check shows "auth missing"**
+**"Needs attention" on a workspace**
+- Tap **Fix** to attempt auto-repair (trust acceptance, etc.)
+- Tap **Recheck** to re-run health checks after manual fixes
+- Common causes: container not running, Claude CLI not installed, not authenticated
+
+**Health check shows "not authenticated"**
 Run `claude` interactively inside the container/host to complete authentication. The launcher checks for `~/.claude/.credentials.json`.
 
-**Tailscale not connecting**
-- Verify `TAILSCALE_AUTHKEY` is a valid, non-expired reusable key
-- Check that the `tag:claude-launcher` tag exists in your Tailscale ACLs
-- Always `docker compose down` then `docker compose up -d` (not `--force-recreate`)
+**Session not disappearing from Claude mobile app after kill**
+- Clean kills (SIGTERM) trigger Claude's deregister. Session should disappear.
+- Force kills (SIGKILL) skip cleanup. Session expires after 24 hours.
 
 **Container not found**
-Run `docker ps --format 'table {{.Names}}\t{{.Status}}'` to verify the container name matches your workspot config.
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+```
 
 ### Stopping
 
 ```bash
+# Native
+pkill -f "uvicorn app.main"
+
+# Docker
 docker compose down          # Stop services
 docker compose down -v       # Stop and remove volumes (clears all state)
 ```
-
-## Development
-
-To run the launcher locally without Docker:
-
-```bash
-cd app
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8765 --reload
-```
-
-The frontend is plain HTML/JS in `app/static/` — edit and reload, no build step needed.
 
 ## License
 
