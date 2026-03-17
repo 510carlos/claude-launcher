@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- Design: Dark theme, system font stack, 8px border-radius cards, green=healthy amber=warning red=error, mobile-first -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -12,524 +11,451 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --bg: #0b1220;
-      --bg-soft: #111b30;
       --surface: rgba(15, 23, 42, 0.92);
       --surface-2: rgba(30, 41, 59, 0.9);
-      --surface-3: rgba(51, 65, 85, 0.55);
       --border: rgba(148, 163, 184, 0.18);
       --text: #e5eefc;
       --muted: #94a3b8;
       --accent: #60a5fa;
-      --accent-2: #22c55e;
-      --warning: #f59e0b;
-      --danger: #f87171;
-      --shadow: 0 16px 40px rgba(2, 8, 23, 0.34);
-      --radius: 20px;
-      --radius-sm: 16px;
-      --tap: 54px;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #f87171;
+      --shadow: 0 8px 24px rgba(2, 8, 23, 0.4);
+      --r: 16px;
+      --r-sm: 12px;
+      --tap: 48px;
     }
 
     body {
       min-height: 100dvh;
-      background:
-        radial-gradient(circle at top, rgba(96, 165, 250, 0.18), transparent 28%),
-        linear-gradient(180deg, #0b1220 0%, #0a1020 100%);
+      background: linear-gradient(180deg, #0d1524 0%, #0a1020 100%);
       color: var(--text);
-      font-family: 'Inter', system-ui, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
-    a { color: inherit; }
+    a { color: inherit; text-decoration: none; }
 
+    /* ---- Layout ---- */
     .app {
-      width: min(100%, 1100px);
+      max-width: 960px;
       margin: 0 auto;
-      padding: 14px 14px 28px;
+      padding: 12px 12px 32px;
     }
 
+    /* ---- Top bar ---- */
     .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      position: sticky; top: 0; z-index: 20;
+      display: flex; flex-direction: column; gap: 10px;
       padding: 12px;
-      margin-bottom: 16px;
-      background: rgba(11, 18, 32, 0.82);
+      margin-bottom: 14px;
+      background: rgba(11, 18, 32, 0.88);
       backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: var(--r);
       box-shadow: var(--shadow);
     }
-
-    .brand {
-      min-width: 0;
+    .topbar-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
-
-    .brand-title {
-      font-size: 1.05rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-
-    .brand-subtitle {
-      margin-top: 4px;
-      color: var(--muted);
-      font-size: 0.82rem;
-    }
-
+    .brand-title { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; }
+    .brand-sub { color: var(--muted); font-size: 0.78rem; }
     .nav {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
+      display: flex; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
-
+    .nav::-webkit-scrollbar { display: none; }
     .nav-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-height: 44px;
-      padding: 0 14px;
+      flex-shrink: 0;
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 38px; padding: 0 12px;
       border-radius: 999px;
       border: 1px solid var(--border);
-      background: rgba(15, 23, 42, 0.7);
-      color: var(--text);
-      text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 700;
+      background: rgba(15, 23, 42, 0.65);
+      color: var(--muted);
+      font-size: 0.82rem; font-weight: 700;
+      white-space: nowrap;
+      transition: all 0.15s;
     }
-
     .nav-link.active {
       border-color: rgba(96, 165, 250, 0.45);
-      background: rgba(96, 165, 250, 0.18);
-      color: #dcecff;
+      background: rgba(96, 165, 250, 0.15);
+      color: #dbeafe;
     }
-
     .badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 24px;
-      height: 24px;
-      padding: 0 7px;
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 5px;
       border-radius: 999px;
       background: rgba(96, 165, 250, 0.22);
-      border: 1px solid rgba(96, 165, 250, 0.38);
+      border: 1px solid rgba(96, 165, 250, 0.3);
       color: #dbeafe;
-      font-size: 0.8rem;
-      font-weight: 800;
+      font-size: 0.72rem; font-weight: 800;
     }
 
-    .page {
-      display: none;
-      flex-direction: column;
-      gap: 16px;
-    }
-
+    /* ---- Pages ---- */
+    .page { display: none; flex-direction: column; gap: 14px; }
     .page.active { display: flex; }
 
-    .hero, .panel, .session-card, .workspace-card, .empty, .notice {
+    /* ---- Hero ---- */
+    .hero {
+      padding: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+    }
+    .eyebrow {
+      color: #93c5fd; font-size: 0.72rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .hero h1 {
+      margin: 6px 0 4px; font-size: 1.5rem; line-height: 1.1; letter-spacing: -0.03em;
+    }
+    .hero p { color: var(--muted); font-size: 0.88rem; }
+
+    /* ---- Notice ---- */
+    .notice {
+      display: none;
+      padding: 12px 14px;
+      border-radius: var(--r-sm);
+      font-size: 0.88rem;
       background: var(--surface);
       border: 1px solid var(--border);
       box-shadow: var(--shadow);
     }
+    .notice.info { border-color: rgba(96, 165, 250, 0.28); color: #dbeafe; }
+    .notice.error { border-color: rgba(248, 113, 113, 0.35); color: #fecaca; }
 
-    .hero {
-      border-radius: var(--radius);
-      padding: 20px;
+    /* ---- Cards (shared) ---- */
+    .card {
+      display: flex; flex-direction: column; gap: 12px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+    }
+    .card.dimmed { opacity: 0.55; }
+    .card-head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+    }
+    .card-title { font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; word-break: break-word; }
+    .card-meta { color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+    .card-path {
+      display: block;
+      padding: 8px 10px;
+      background: var(--surface-2);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: var(--r-sm);
+      color: var(--muted); font-size: 0.78rem;
+      font-family: 'SF Mono', 'Cascadia Code', monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    .eyebrow {
-      color: #93c5fd;
-      font-size: 0.78rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .hero h1 {
-      margin: 10px 0 8px;
-      font-size: 1.85rem;
-      line-height: 1.05;
-      letter-spacing: -0.04em;
-    }
-
-    .hero p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 1rem;
-      line-height: 1.5;
-    }
-
-    .notice {
-      display: none;
-      border-radius: 16px;
-      padding: 14px 16px;
-      font-size: 0.96rem;
-      line-height: 1.45;
-    }
-
-    .notice.info { border-color: rgba(96, 165, 250, 0.32); color: #dbeafe; }
-    .notice.error { border-color: rgba(248, 113, 113, 0.38); color: #fecaca; }
-
-    .workspace-grid,
-    .session-list {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 14px;
-    }
-
-    .workspace-card,
-    .session-card,
-    .panel,
-    .empty {
-      border-radius: var(--radius);
-      padding: 16px;
-    }
-
-    .workspace-card {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .workspace-header,
-    .session-header,
-    .section-header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .workspace-name,
-    .session-title,
-    .section-title {
-      font-size: 1.1rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-    }
-
-    .workspace-meta,
-    .session-meta,
-    .muted {
-      color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.45;
-    }
-
-    .status-pill,
-    .mini-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 34px;
-      padding: 0 12px;
+    /* ---- Pills ---- */
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      height: 28px; padding: 0 10px;
       border-radius: 999px;
       border: 1px solid var(--border);
       background: rgba(15, 23, 42, 0.55);
-      white-space: nowrap;
-      font-size: 0.88rem;
-      font-weight: 700;
+      font-size: 0.75rem; font-weight: 700;
+      white-space: nowrap; flex-shrink: 0;
     }
-
-    .status-pill::before {
-      content: '';
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
+    .pill::before {
+      content: ''; width: 8px; height: 8px; border-radius: 999px;
       background: #64748b;
-      box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.12);
+    }
+    .pill-green::before { background: var(--green); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.12); }
+    .pill-yellow::before { background: var(--yellow); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12); }
+    .pill-red::before { background: var(--red); box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12); }
+    .pill-plain { /* no dot */ }
+    .pill-plain::before { display: none; }
+    .pill-tag {
+      height: 24px; padding: 0 8px; font-size: 0.7rem;
+      background: rgba(96, 165, 250, 0.1); border-color: rgba(96, 165, 250, 0.25); color: #93c5fd;
+    }
+    .pill-tag::before { display: none; }
+    .pill-added {
+      background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.3); color: #86efac;
     }
 
-    .status-running::before { background: var(--accent-2); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); }
-    .status-pending::before { background: var(--warning); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); }
-    .status-stopped::before { background: #64748b; }
-    .status-unhealthy::before { background: var(--danger); box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15); }
-
-    .workspace-detail-list,
-    .session-detail-list {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
+    /* ---- Check row ---- */
+    .checks {
+      display: flex; flex-wrap: wrap; gap: 4px 10px;
+      font-size: 0.78rem; color: var(--muted);
     }
+    .chk { display: inline-flex; align-items: center; gap: 4px; }
+    .chk-ok { color: var(--green); }
+    .chk-no { color: rgba(248, 113, 113, 0.7); }
 
-    .detail-row {
-      padding: 12px 13px;
-      border-radius: var(--radius-sm);
+    /* ---- Detail grid ---- */
+    .details {
+      display: grid; grid-template-columns: 1fr; gap: 8px;
+    }
+    .det {
+      padding: 10px;
       background: var(--surface-2);
-      border: 1px solid rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: var(--r-sm);
+    }
+    .det-label {
+      color: #cbd5e1; font-size: 0.7rem; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px;
+    }
+    .det-val { font-size: 0.88rem; word-break: break-word; }
+
+    /* ---- Errors ---- */
+    .errors { display: flex; flex-direction: column; gap: 6px; }
+    .err {
+      padding: 8px 10px;
+      border-radius: var(--r-sm);
+      background: rgba(127, 29, 29, 0.2);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: #fecaca; font-size: 0.82rem;
     }
 
-    .detail-label {
-      margin-bottom: 6px;
-      color: #cbd5e1;
-      font-size: 0.78rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-
-    .detail-value {
-      color: var(--text);
-      font-size: 0.96rem;
-      line-height: 1.4;
-      word-break: break-word;
-    }
-
-    .card-actions,
-    .session-actions,
-    .inline-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .workspace-errors {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .workspace-error {
-      padding: 10px 12px;
-      border-radius: var(--radius-sm);
-      background: rgba(127, 29, 29, 0.22);
-      border: 1px solid rgba(248, 113, 113, 0.22);
-      color: #fecaca;
-      font-size: 0.9rem;
-      line-height: 1.4;
-    }
-
-    button,
-    .button-link {
-      appearance: none;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      min-height: var(--tap);
-      padding: 0 16px;
-      background: rgba(30, 41, 59, 0.85);
-      color: var(--text);
-      font: inherit;
-      font-size: 0.98rem;
-      font-weight: 700;
+    /* ---- Buttons ---- */
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn {
+      appearance: none; border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      min-height: var(--tap); padding: 0 16px;
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text); font: inherit;
+      font-size: 0.88rem; font-weight: 700;
       cursor: pointer;
-      text-decoration: none;
     }
-
-    button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(180deg, rgba(96, 165, 250, 0.22), rgba(59, 130, 246, 0.16));
+      border-color: rgba(96, 165, 250, 0.4);
     }
-
-    .primary {
-      background: linear-gradient(180deg, rgba(96, 165, 250, 0.26), rgba(59, 130, 246, 0.2));
-      border-color: rgba(96, 165, 250, 0.45);
+    .btn-danger {
+      background: rgba(127, 29, 29, 0.28);
+      border-color: rgba(248, 113, 113, 0.3); color: #fecaca;
     }
+    .btn-ghost { background: rgba(15, 23, 42, 0.4); }
+    .btn-sm { min-height: 36px; padding: 0 12px; font-size: 0.82rem; border-radius: 10px; }
+    .btn-full { width: 100%; }
 
-    .danger {
-      background: rgba(127, 29, 29, 0.32);
-      border-color: rgba(248, 113, 113, 0.34);
-      color: #fecaca;
+    /* ---- Form ---- */
+    .form-area {
+      display: none; flex-direction: column; gap: 10px;
+      padding: 12px; border-radius: var(--r-sm);
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(96, 165, 250, 0.15);
     }
-
-    .ghost {
-      background: rgba(15, 23, 42, 0.45);
+    .form-area.open { display: flex; }
+    .form-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    .form-label {
+      display: flex; flex-direction: column; gap: 6px;
+      color: #cbd5e1; font-size: 0.82rem; font-weight: 700;
     }
-
-    .inline-form {
-      display: none;
-      flex-direction: column;
-      gap: 12px;
-      padding: 14px;
-      border-radius: 18px;
-      background: rgba(15, 23, 42, 0.72);
-      border: 1px solid rgba(96, 165, 250, 0.2);
+    .form-input {
+      width: 100%; min-height: 44px; padding: 0 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      background: rgba(30, 41, 59, 0.85);
+      color: var(--text); font: inherit; font-size: 0.92rem;
     }
-
-    .inline-form.open { display: flex; }
-
-    .field-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      color: #cbd5e1;
-      font-size: 0.88rem;
-      font-weight: 700;
-    }
-
-    input {
-      width: 100%;
-      min-height: var(--tap);
-      padding: 0 14px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      background: rgba(30, 41, 59, 0.9);
-      color: var(--text);
-      font: inherit;
-      font-size: 1rem;
-    }
-
-    input:focus {
+    .form-input:focus {
       outline: none;
-      border-color: rgba(96, 165, 250, 0.55);
-      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
+      border-color: rgba(96, 165, 250, 0.5);
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
     }
 
+    /* ---- Panel (section container) ---- */
     .panel {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+      display: flex; flex-direction: column; gap: 12px;
+      padding: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
     }
-
-    .session-card {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
+    .panel-head {
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
     }
+    .panel-title { font-size: 1rem; font-weight: 800; }
+    .panel-sub { color: var(--muted); font-size: 0.8rem; }
 
-    .session-link {
-      color: #93c5fd;
-      font-weight: 700;
+    /* ---- Grid ---- */
+    .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+
+    /* ---- Session card ---- */
+    .session-link { color: #93c5fd; font-weight: 700; word-break: break-all; font-size: 0.85rem; }
+    .card.pending { border-color: rgba(245, 158, 11, 0.25); }
+    .card.stopped, .card.failed { opacity: 0.6; }
+
+    /* ---- Spinner ---- */
+    .spinner {
+      width: 16px; height: 16px; border-radius: 999px;
+      border: 2px solid rgba(245, 158, 11, 0.2);
+      border-top-color: var(--yellow);
+      animation: spin 0.9s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- Empty state ---- */
+    .output-box {
+      display: none;
+      max-height: 280px; overflow-y: auto;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: var(--r-sm);
+      font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.6;
+      color: var(--muted);
+      white-space: pre-wrap;
       word-break: break-all;
     }
-
-    .session-card.pending {
-      border-color: rgba(245, 158, 11, 0.28);
-    }
-
-    .session-card.stopped,
-    .session-card.failed {
-      opacity: 0.7;
-      background: rgba(15, 23, 42, 0.72);
-    }
-
-    .spinner {
-      width: 18px;
-      height: 18px;
-      border-radius: 999px;
-      border: 2px solid rgba(245, 158, 11, 0.2);
-      border-top-color: var(--warning);
-      animation: spin 0.9s linear infinite;
-    }
-
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 10px;
-    }
+    .output-box.open { display: block; }
 
     .empty {
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.5;
+      padding: 20px;
+      text-align: center; color: var(--muted); font-size: 0.88rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
     }
 
-    .subtle {
-      color: var(--muted);
-      font-size: 0.84rem;
+    /* ---- Responsive ---- */
+    @media (min-width: 520px) {
+      .topbar { flex-direction: row; align-items: center; justify-content: space-between; }
+      .form-grid { grid-template-columns: 1fr 1fr; }
+      .details { grid-template-columns: 1fr 1fr; }
     }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
     @media (min-width: 720px) {
-      .app { padding: 18px 18px 36px; }
-      .workspace-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .workspace-detail-list,
-      .session-detail-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .app { padding: 16px 16px 40px; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .hero h1 { font-size: 1.8rem; }
     }
-
-    @media (min-width: 980px) {
-      .workspace-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .hero { padding: 24px; }
-      .hero h1 { font-size: 2.25rem; }
+    @media (min-width: 1000px) {
+      .grid { grid-template-columns: repeat(3, 1fr); }
     }
   </style>
 </head>
 <body>
   <div class="app">
     <nav class="topbar">
-      <div class="brand">
-        <div class="brand-title">Claude Launcher</div>
-        <div class="brand-subtitle" id="nav-summary">Loading launcher status…</div>
+      <div class="topbar-row">
+        <div>
+          <div class="brand-title">Claude Launcher</div>
+          <div class="brand-sub" id="nav-summary">Loading...</div>
+        </div>
       </div>
       <div class="nav">
         <a class="nav-link" href="#/" data-route="/">Workspaces</a>
         <a class="nav-link" href="#/sessions" data-route="/sessions">Sessions <span class="badge" id="sessions-badge">0</span></a>
+        <a class="nav-link" href="#/discover" data-route="/discover">Discover</a>
       </div>
     </nav>
 
     <div id="notice" class="notice info"></div>
 
+    <!-- ======== WORKSPACES PAGE ======== -->
     <section id="page-workspaces" class="page active">
       <div class="hero">
-        <div class="eyebrow">Page 1</div>
-        <h1>Workspaces</h1>
-        <p>Pick a workspace, add an optional label or branch, then start a session. Clean and fast on desktop or phone.</p>
+        <div class="eyebrow">Workspaces</div>
+        <h1>Your Workspaces</h1>
+        <p>Pick a workspace and start a Claude session. <a href="#/discover" style="color:var(--accent);text-decoration:underline">Discover more</a></p>
       </div>
-      <div id="workspace-grid" class="workspace-grid"></div>
+      <div id="workspace-grid" class="grid"></div>
     </section>
 
+    <!-- ======== SESSIONS PAGE ======== -->
     <section id="page-sessions" class="page">
       <div class="hero">
-        <div class="eyebrow">Page 2</div>
-        <h1>Sessions</h1>
-        <p>Running sessions stay at the top, pending sessions show progress, and old sessions sink to the bottom for cleanup.</p>
+        <div class="eyebrow">Sessions</div>
+        <h1>Active Sessions</h1>
+        <p>Running sessions at top, pending in the middle, finished at the bottom.</p>
       </div>
 
-      <div class="inline-actions">
-        <button type="button" class="ghost" id="back-button">← Back to Workspaces</button>
-      </div>
-
-      <div class="panel">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Running</div>
-            <div class="muted">Live sessions with links and quick kill actions.</div>
-          </div>
-          <span class="mini-pill" id="running-count">0</span>
-        </div>
-        <div id="running-list" class="session-list"></div>
+      <div class="actions">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="setRoute('/')">Back to Workspaces</button>
       </div>
 
       <div class="panel">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Pending</div>
-            <div class="muted">Waiting for the launcher to finish bringing things up.</div>
-          </div>
-          <span class="mini-pill" id="pending-count">0</span>
+        <div class="panel-head">
+          <div><div class="panel-title">Running</div><div class="panel-sub">Live sessions with links.</div></div>
+          <span class="pill pill-green pill-plain" id="running-count" style="font-size:0.8rem">0</span>
         </div>
-        <div id="pending-list" class="session-list"></div>
+        <div id="running-list" class="grid"></div>
       </div>
 
       <div class="panel">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Stopped / Failed</div>
-            <div class="muted">Older sessions, grayed out, ready to delete.</div>
-          </div>
-          <span class="mini-pill" id="ended-count">0</span>
+        <div class="panel-head">
+          <div><div class="panel-title">Pending</div><div class="panel-sub">Starting up...</div></div>
+          <span class="pill pill-yellow pill-plain" id="pending-count" style="font-size:0.8rem">0</span>
         </div>
-        <div id="ended-list" class="session-list"></div>
+        <div id="pending-list" class="grid"></div>
       </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="panel-title">Ended</div><div class="panel-sub">Stopped or failed.</div></div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-danger btn-sm" id="clear-ended" style="display:none" onclick="clearEndedSessions()">Clear all</button>
+            <span class="pill pill-plain" id="ended-count" style="font-size:0.8rem">0</span>
+          </div>
+        </div>
+        <div id="ended-list" class="grid"></div>
+      </div>
+    </section>
+
+    <!-- ======== DISCOVER PAGE ======== -->
+    <section id="page-discover" class="page">
+      <div class="hero">
+        <div class="eyebrow">Discovery</div>
+        <h1>Discover Environments</h1>
+        <p>Scans Docker containers and local repos. Add compatible ones to your workspaces.</p>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary btn-sm" id="scan-button" onclick="runDiscovery()">Rescan</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="setRoute('/')">Back</button>
+      </div>
+
+      <div id="discover-scanning" class="notice info" style="display:none">
+        <div style="display:flex;align-items:center;gap:10px"><span class="spinner"></span> Scanning environments...</div>
+      </div>
+
+      <div id="discover-compatible" class="panel" style="display:none">
+        <div class="panel-head">
+          <div><div class="panel-title">Compatible</div><div class="panel-sub">Ready to use.</div></div>
+          <span class="pill pill-green pill-plain" id="compat-count">0</span>
+        </div>
+        <div id="compat-list" class="grid"></div>
+      </div>
+
+      <div id="discover-partial" class="panel" style="display:none">
+        <div class="panel-head">
+          <div><div class="panel-title">Needs Setup</div><div class="panel-sub">Missing requirements.</div></div>
+          <span class="pill pill-yellow pill-plain" id="partial-count">0</span>
+        </div>
+        <div id="partial-list" class="grid"></div>
+      </div>
+
+      <div id="discover-incompatible" class="panel" style="display:none">
+        <div class="panel-head">
+          <div><div class="panel-title">Not Ready</div><div class="panel-sub">Containers or repos missing most requirements.</div></div>
+          <span class="pill pill-plain" id="incompat-count">0</span>
+        </div>
+        <div id="incompat-list" class="grid"></div>
+      </div>
+
+      <div id="discover-empty" class="empty" style="display:none">No scan results yet.</div>
     </section>
   </div>
 
@@ -540,451 +466,554 @@
       sessions: [],
       refreshTimer: null,
       creatingWorkspace: null,
+      discovered: null,
+      scanning: false,
     };
 
-    const noticeEl = document.getElementById('notice');
-    const navSummaryEl = document.getElementById('nav-summary');
-    const sessionsBadgeEl = document.getElementById('sessions-badge');
-    const workspaceGridEl = document.getElementById('workspace-grid');
-    const runningListEl = document.getElementById('running-list');
-    const pendingListEl = document.getElementById('pending-list');
-    const endedListEl = document.getElementById('ended-list');
-    const runningCountEl = document.getElementById('running-count');
-    const pendingCountEl = document.getElementById('pending-count');
-    const endedCountEl = document.getElementById('ended-count');
+    const $ = id => document.getElementById(id);
+    const noticeEl = $('notice');
+    const navSummaryEl = $('nav-summary');
+    const sessionsBadgeEl = $('sessions-badge');
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/static/sw.js').catch(() => {});
     }
 
-    function escapeHtml(value) {
-      return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
+    function esc(v) {
+      return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
     function routeFromHash() {
-      const hash = window.location.hash || '#/';
-      const normalized = hash.replace(/^#/, '');
-      if (normalized === '/sessions' || normalized === 'sessions') return '/sessions';
+      const h = (window.location.hash || '#/').replace(/^#/, '');
+      if (h === '/sessions' || h === 'sessions') return '/sessions';
+      if (h === '/discover' || h === 'discover') return '/discover';
       return '/';
     }
 
-    function setRoute(route) {
-      window.location.hash = route === '/sessions' ? '#/sessions' : '#/';
+    function setRoute(r) {
+      window.location.hash = '#' + (['/', '/sessions', '/discover'].includes(r) ? r : '/');
     }
 
-    function showNotice(message, kind = 'info') {
-      if (!message) {
-        noticeEl.style.display = 'none';
-        noticeEl.textContent = '';
-        return;
-      }
+    function showNotice(msg, kind = 'info') {
+      if (!msg) { noticeEl.style.display = 'none'; return; }
       noticeEl.className = `notice ${kind}`;
-      noticeEl.textContent = message;
+      noticeEl.textContent = msg;
       noticeEl.style.display = 'block';
     }
 
-    function formatTime(value) {
-      if (!value) return 'Unknown time';
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return value;
-      return date.toLocaleString();
+    function fmtTime(v) {
+      if (!v) return '\u2014';
+      const d = new Date(v);
+      if (isNaN(d)) return v;
+      const s = (Date.now() - d.getTime()) / 1000;
+      if (s < 60) return 'just now';
+      if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+      if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+      if (s < 604800) return `${Math.floor(s / 86400)}d ago`;
+      return d.toLocaleDateString();
     }
 
-    function healthByName(name) {
-      return state.workspaceHealth.find(item => item.workspot === name) || null;
+    function healthOf(name) { return state.workspaceHealth.find(h => h.workspot === name) || null; }
+
+    function isHealthy(ws) {
+      const h = healthOf(ws.name);
+      return !!(h && h.runtime_ok && h.repo_exists && h.git_ok && h.claude_bin_ok && h.auth_ok && h.trusted !== false);
     }
 
-    function workspaceStatus(health) {
-      if (!health) return { label: 'Unknown', className: 'status-stopped' };
-      if (!health.runtime_ok || !health.repo_exists || !health.git_ok || !health.claude_bin_ok || !health.auth_ok) {
-        return { label: 'Needs attention', className: 'status-unhealthy' };
-      }
-      if (health.server_status === 'running') return { label: 'Ready', className: 'status-running' };
-      if (health.server_status === 'stopped') return { label: 'Stopped', className: 'status-stopped' };
-      return { label: 'Checking', className: 'status-pending' };
+    function statusPill(health) {
+      if (!health) return '<span class="pill">Unknown</span>';
+      if (!health.runtime_ok || !health.repo_exists || !health.git_ok || !health.claude_bin_ok || !health.auth_ok || health.trusted === false)
+        return '<span class="pill pill-red">Needs attention</span>';
+      if (health.server_status === 'running') return '<span class="pill pill-green">Ready</span>';
+      return '<span class="pill pill-green">Ready</span>';
     }
 
-    function workspaceErrors(workspace, health) {
-      if (!health) return ['Workspace health unavailable'];
-
-      const errors = [];
-      if (health.claude_bin_ok === false) {
-        errors.push(`Claude CLI not found at ${health.claude_bin_path || 'configured path'}`);
-      }
-      if (health.auth_ok === false) {
-        errors.push('Not authenticated — run /login in this environment');
-      }
-      if (health.git_ok === false) {
-        errors.push('Git not available');
-      }
-      if (health.repo_exists === false) {
-        errors.push(`Directory not found: ${workspace.dir}`);
-      }
-      if (health.runtime_ok === false) {
-        const runtimeMessage = health.runtime === 'host' || workspace.runtime === 'host'
-          ? 'Host unreachable'
-          : 'Container not running';
-        errors.push(runtimeMessage);
-      }
-      return errors;
+    function wsErrors(ws, h) {
+      if (!h) return ['Health unavailable'];
+      // Use server-provided issues if available
+      if (h.issues && h.issues.length) return h.issues;
+      const e = [];
+      if (!h.claude_bin_ok) e.push('Claude CLI not found');
+      if (!h.auth_ok) e.push('Not authenticated');
+      if (h.trusted === false) e.push('Workspace not trusted — run claude interactively first');
+      if (!h.git_ok) e.push('Git not available');
+      if (!h.repo_exists) e.push('Directory not found');
+      if (!h.runtime_ok) e.push(ws.runtime === 'host' ? 'Host unreachable' : 'Container not running');
+      return e;
     }
 
-    function isWorkspaceHealthy(workspace) {
-      const health = healthByName(workspace.name);
-      return Boolean(
-        health
-        && health.runtime_ok
-        && health.repo_exists
-        && health.git_ok
-        && health.claude_bin_ok
-        && health.auth_ok
-      );
-    }
+    /* ---- RENDER: Workspaces ---- */
+    function renderWorkspaces() {
+      const el = $('workspace-grid');
+      if (!state.workspaces.length) {
+        el.innerHTML = '<div class="empty">No workspaces yet. <a href="#/discover" style="color:var(--accent)">Discover environments</a></div>';
+        return;
+      }
 
-    function sortedWorkspaces() {
-      return [...state.workspaces].sort((a, b) => {
-        const aHealthy = isWorkspaceHealthy(a) ? 0 : 1;
-        const bHealthy = isWorkspaceHealthy(b) ? 0 : 1;
-        if (aHealthy !== bHealthy) return aHealthy - bHealthy;
-        return a.name.localeCompare(b.name);
+      const sorted = [...state.workspaces].sort((a, b) => {
+        const d = (isHealthy(a) ? 0 : 1) - (isHealthy(b) ? 0 : 1);
+        return d || a.name.localeCompare(b.name);
       });
+
+      el.innerHTML = sorted.map(ws => {
+        const h = healthOf(ws.name);
+        const ok = isHealthy(ws);
+        const errs = wsErrors(ws, h);
+        const active = state.sessions.filter(s => s.workspot === ws.name && (s.status === 'running' || s.status === 'pending')).length;
+        const formOpen = ok && state.creatingWorkspace === ws.name;
+
+        return `
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title">${esc(ws.name)}</div>
+                <div class="card-meta">${esc(ws.container || 'Host')}${active ? ` &middot; ${active} active` : ''}</div>
+              </div>
+              ${statusPill(h)}
+            </div>
+
+            <div class="card-path" title="${esc(ws.dir)}">${esc(ws.dir)}</div>
+
+            ${!ok && errs.length ? `<div class="errors">${errs.map(e => `<div class="err">${esc(e)}</div>`).join('')}</div>` : ''}
+
+            <div class="actions">
+              <button class="btn btn-primary btn-sm" onclick="toggleStartForm('${esc(ws.name)}')" ${ok ? '' : 'disabled'}>Start Session</button>
+              ${ws.source === 'file' ? `<button class="btn btn-danger btn-sm" onclick="removeWorkspot('${esc(ws.name)}')">Remove</button>` : ''}
+            </div>
+
+            <div class="form-area ${formOpen ? 'open' : ''}" id="form-${esc(ws.name)}">
+              <div style="font-weight:700;font-size:0.88rem">New session</div>
+              <div class="form-grid">
+                <label class="form-label">Label <input class="form-input" id="label-${esc(ws.name)}" type="text" placeholder="review, docs..."></label>
+                <label class="form-label">Branch <input class="form-input" id="branch-${esc(ws.name)}" type="text" placeholder="feature/..."></label>
+              </div>
+              <label class="form-label" style="flex-direction:row;align-items:center;gap:10px;cursor:pointer">
+                <input type="checkbox" id="wt-${esc(ws.name)}" style="width:20px;height:20px;min-height:auto;accent-color:var(--accent)" onchange="onWorktreeToggle('${esc(ws.name)}', this.checked)">
+                <span>Use worktree <span style="color:var(--muted);font-weight:400">(isolated copy off main)</span></span>
+              </label>
+              <div class="actions">
+                <button class="btn btn-primary btn-sm" onclick="startSession('${esc(ws.name)}')">Start</button>
+                <button class="btn btn-ghost btn-sm" onclick="toggleStartForm('${esc(ws.name)}', false)">Cancel</button>
+              </div>
+            </div>
+          </article>`;
+      }).join('');
     }
 
-    function sortSessions() {
-      const weight = { running: 0, pending: 1, failed: 2, stopped: 3 };
-      return [...state.sessions].sort((a, b) => {
-        const diff = (weight[a.status] ?? 99) - (weight[b.status] ?? 99);
-        if (diff !== 0) return diff;
-        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    /* ---- RENDER: Sessions ---- */
+    function renderSessionCard(s, { showKill = false, showDelete = false, pending = false } = {}) {
+      const cls = s.status === 'running' ? 'pill-green' : s.status === 'pending' ? 'pill-yellow' : s.status === 'failed' ? 'pill-red' : '';
+      return `
+        <article class="card ${esc(s.status)}">
+          <div class="card-head">
+            <div>
+              <div class="card-title">${esc(s.label || s.id)}</div>
+              <div class="card-meta">${esc(s.workspot)}${s.branch ? ' &middot; ' + esc(s.branch) : ''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${pending ? '<span class="spinner"></span>' : ''}
+              <span class="pill ${cls}">${esc(s.status)}</span>
+            </div>
+          </div>
+
+          ${s.url ? `<a class="session-link" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.url)}</a>` : '<div class="card-meta">Waiting for URL...</div>'}
+
+          <div class="card-meta">Started ${esc(fmtTime(s.created_at))}</div>
+
+          <div class="actions">
+            <button class="btn btn-ghost btn-sm" onclick="toggleOutput('${esc(s.id)}')">Output</button>
+            ${showKill ? `<button class="btn btn-danger btn-sm" onclick="killSession('${esc(s.id)}')">Kill</button>` : ''}
+            ${showDelete ? `<button class="btn btn-danger btn-sm" onclick="deleteSession('${esc(s.id)}')">Delete</button>` : ''}
+          </div>
+          <div class="output-box" id="output-${esc(s.id)}"></div>
+        </article>`;
+    }
+
+    function renderSessions() {
+      const w = { running: 0, pending: 1, failed: 2, stopped: 3 };
+      const sorted = [...state.sessions].sort((a, b) => (w[a.status]??9) - (w[b.status]??9) || new Date(b.created_at||0) - new Date(a.created_at||0));
+      const running = sorted.filter(s => s.status === 'running');
+      const pending = sorted.filter(s => s.status === 'pending');
+      const ended = sorted.filter(s => s.status === 'stopped' || s.status === 'failed');
+
+      $('running-count').textContent = running.length;
+      $('pending-count').textContent = pending.length;
+      $('ended-count').textContent = ended.length;
+
+      $('running-list').innerHTML = running.length
+        ? running.map(s => renderSessionCard(s, { showKill: true })).join('')
+        : '<div class="empty">No running sessions.</div>';
+      $('pending-list').innerHTML = pending.length
+        ? pending.map(s => renderSessionCard(s, { pending: true, showKill: true })).join('')
+        : '<div class="empty">Nothing pending.</div>';
+      $('ended-list').innerHTML = ended.length
+        ? ended.map(s => renderSessionCard(s, { showDelete: true })).join('')
+        : '<div class="empty">No ended sessions.</div>';
+      $('clear-ended').style.display = ended.length > 0 ? 'inline-flex' : 'none';
+    }
+
+    /* ---- RENDER: Discovery ---- */
+    function renderDiscoveredCard(env) {
+      const isDocker = env.runtime === 'docker';
+      const isUp = env.container_status && env.container_status.startsWith('Up');
+
+      // Type + status pill
+      let typePill;
+      if (isDocker) {
+        typePill = isUp
+          ? '<span class="pill pill-green" style="font-size:0.72rem;height:24px">Running</span>'
+          : '<span class="pill" style="font-size:0.72rem;height:24px">Stopped</span>';
+      } else {
+        typePill = '<span class="pill pill-tag" style="height:24px">Local</span>';
+      }
+
+      // Container meta
+      const imageName = (env.image || '').split(':')[0].split('/').pop() || '';
+      const meta = isDocker ? `${esc(env.container || '')}${imageName ? ' &middot; ' + esc(imageName) : ''}` : 'Host runtime';
+      const statusMeta = isDocker && env.container_status ? `<div class="card-meta">${esc(env.container_status)}</div>` : '';
+
+      // Checks
+      const checksHtml = Object.entries(env.checks || {}).map(([k, ok]) => {
+        const label = k.replace(/_/g, ' ').replace(/ok$/, '').trim();
+        return `<span class="chk ${ok ? 'chk-ok' : 'chk-no'}">${ok ? '&#10003;' : '&#10007;'} ${esc(label)}</span>`;
+      }).join('');
+
+      // Issues
+      const issuesHtml = env.issues.length
+        ? `<div class="errors">${env.issues.map(i => `<div class="err">${esc(i)}</div>`).join('')}</div>`
+        : '';
+
+      // Already added badge
+      const addedBadge = env.already_configured ? '<span class="pill pill-tag pill-added" style="height:22px">In Workspaces</span>' : '';
+
+      const canAdd = !env.already_configured;
+
+      return `
+        <article class="card${env.already_configured ? ' dimmed' : ''}">
+          <div class="card-head">
+            <div>
+              ${addedBadge ? `<div style="margin-bottom:4px">${addedBadge}</div>` : ''}
+              <div class="card-title">${esc(env.name)}</div>
+              <div class="card-meta">${meta}</div>
+              ${statusMeta}
+            </div>
+            ${typePill}
+          </div>
+          <div class="card-path" title="${esc(env.dir)}">${esc(env.dir)}</div>
+          <div class="checks">${checksHtml}</div>
+          ${issuesHtml}
+          <div class="actions">
+            <button class="btn ${canAdd ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="addWorkspot(${esc(JSON.stringify(JSON.stringify(env)))})" ${canAdd ? '' : 'disabled'}>${canAdd ? '+ Add' : 'Added'}</button>
+          </div>
+        </article>`;
+    }
+
+    function renderDiscovery() {
+      const scanning = $('discover-scanning');
+      const empty = $('discover-empty');
+      const cp = $('discover-compatible');
+      const pp = $('discover-partial');
+      const ip = $('discover-incompatible');
+
+      scanning.style.display = state.scanning ? 'block' : 'none';
+
+      if (!state.discovered) {
+        empty.style.display = state.scanning ? 'none' : 'block';
+        cp.style.display = pp.style.display = ip.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none';
+      const d = state.discovered;
+
+      function showPanel(panel, list, countId, items) {
+        if (items.length) {
+          panel.style.display = 'flex';
+          $(countId).textContent = items.length;
+          list.innerHTML = items.map(renderDiscoveredCard).join('');
+        } else {
+          panel.style.display = 'none';
+        }
+      }
+      showPanel(cp, $('compat-list'), 'compat-count', d.compatible);
+      showPanel(pp, $('partial-list'), 'partial-count', d.partial);
+      showPanel(ip, $('incompat-list'), 'incompat-count', d.incompatible);
+    }
+
+    /* ---- RANDOM NAMES ---- */
+    const _adj = ['swift','bold','calm','keen','warm','cool','bright','sharp','quick','fresh','neat','wise','glad','fair','prime'];
+    const _noun = ['fix','patch','review','draft','spike','task','build','scan','check','tweak','pass','sync','push','test','ship'];
+    function randomLabel() { return _adj[Math.random()*_adj.length|0] + '-' + _noun[Math.random()*_noun.length|0]; }
+    function randomBranch() { return 'wt/' + randomLabel(); }
+
+    /* ---- DATA ---- */
+    let _dataHash = '';
+    function hashData(data) { return JSON.stringify(data); }
+
+    async function loadData() {
+      const [ws, health, sess] = await Promise.all([
+        fetch('/api/workspots'), fetch('/api/workspots/health'), fetch('/api/sessions'),
+      ]);
+      if (!ws.ok || !health.ok || !sess.ok) throw new Error('Load failed');
+      const newWs = await ws.json();
+      const newHealth = await health.json();
+      const newSess = await sess.json();
+      const newHash = hashData([newWs, newHealth, newSess]);
+      if (newHash === _dataHash) return false; // no changes
+      state.workspaces = newWs;
+      state.workspaceHealth = newHealth;
+      state.sessions = newSess;
+      _dataHash = newHash;
+      return true; // data changed
+    }
+
+    /* ---- ACTIONS (optimistic) ---- */
+    async function runDiscovery() {
+      state.scanning = true; state.discovered = null;
+      renderDiscovery();
+      showNotice('Scanning...', 'info');
+      try {
+        const res = await fetch('/api/discover');
+        if (!res.ok) throw new Error('fail');
+        state.discovered = await res.json();
+        showNotice(`Found ${state.discovered.total} environments, ${state.discovered.compatible.length} compatible.`, 'info');
+      } catch (e) {
+        console.error(e); showNotice('Discovery failed.', 'error');
+      } finally {
+        state.scanning = false; renderDiscovery();
+      }
+    }
+
+    async function addWorkspot(envJson) {
+      const env = JSON.parse(envJson);
+      // Optimistic: mark as added immediately
+      if (state.discovered) {
+        [state.discovered.compatible, state.discovered.partial, state.discovered.incompatible]
+          .flat().filter(i => i.name === env.name).forEach(i => i.already_configured = true);
+      }
+      renderDiscovery();
+      showNotice(`Adding "${env.name}"...`, 'info');
+
+      try {
+        const res = await fetch('/api/workspots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: env.name, runtime: env.runtime, dir: env.dir,
+            container: env.container || null, claude_bin: env.claude_bin || 'claude',
+            server_capacity: 32, env: {},
+          }),
+        });
+        const r = await res.json();
+        if (r.status !== 'ok') {
+          // Rollback optimistic update
+          if (state.discovered) {
+            [state.discovered.compatible, state.discovered.partial, state.discovered.incompatible]
+              .flat().filter(i => i.name === env.name).forEach(i => i.already_configured = false);
+          }
+          renderDiscovery();
+          showNotice(r.message || 'Failed.', 'error');
+          return;
+        }
+        showNotice(`Added "${env.name}".`, 'info');
+        await loadData(); render();
+      } catch (e) { console.error(e); showNotice('Failed to add.', 'error'); }
+    }
+
+    async function removeWorkspot(name) {
+      // Optimistic: remove from UI immediately
+      state.workspaces = state.workspaces.filter(w => w.name !== name);
+      renderWorkspaces(); updateNav();
+      showNotice(`Removed "${name}".`, 'info');
+
+      try {
+        const res = await fetch(`/api/workspots/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        const r = await res.json();
+        if (r.status !== 'ok') {
+          showNotice(r.message || 'Failed.', 'error');
+          await loadData(); render(); // rollback
+          return;
+        }
+        _dataHash = ''; // force next refresh to update
+      } catch (e) { console.error(e); showNotice('Failed.', 'error'); await loadData(); render(); }
+    }
+
+    function toggleStartForm(name, force) {
+      const ws = state.workspaces.find(w => w.name === name);
+      if (ws && !isHealthy(ws)) return;
+      const next = typeof force === 'boolean' ? (force ? name : null) : (state.creatingWorkspace === name ? null : name);
+      state.creatingWorkspace = next;
+      renderWorkspaces();
+      if (next) {
+        const labelEl = document.getElementById(`label-${name}`);
+        const branchEl = document.getElementById(`branch-${name}`);
+        if (labelEl && !labelEl.value) labelEl.value = randomLabel();
+        if (branchEl && !branchEl.value) branchEl.value = randomBranch();
+      }
+    }
+
+    function onWorktreeToggle(name, checked) {
+      const branchEl = document.getElementById(`branch-${name}`);
+      if (!branchEl) return;
+      if (checked) {
+        // Worktree: generate a fresh wt/ branch name
+        branchEl.value = randomBranch();
+      } else {
+        // Regular session: clear branch (runs on current branch)
+        branchEl.value = '';
+      }
+    }
+
+    async function startSession(name) {
+      const ws = state.workspaces.find(w => w.name === name);
+      if (ws && !isHealthy(ws)) { showNotice('Workspace needs attention.', 'error'); return; }
+      const label = document.getElementById(`label-${name}`)?.value.trim() || randomLabel();
+      const branch = document.getElementById(`branch-${name}`)?.value.trim() || null;
+      const worktree = document.getElementById(`wt-${name}`)?.checked || false;
+
+      // Optimistic: add pending session and switch to sessions page
+      const tempId = 'pending-' + Date.now();
+      state.sessions.unshift({
+        id: tempId, workspot: name, label, branch, status: 'pending',
+        url: null, created_at: new Date().toISOString(),
       });
+      state.creatingWorkspace = null;
+      setRoute('/sessions');
+      render();
+      showNotice(`Starting ${worktree ? 'worktree ' : ''}session...`, 'info');
+
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspot: name, worktree, label, branch, directory: null }),
+        });
+        const r = await res.json();
+        // Remove optimistic session
+        state.sessions = state.sessions.filter(s => s.id !== tempId);
+        if (r.status !== 'ok') {
+          showNotice(r.message || 'Failed.', 'error');
+          render();
+          return;
+        }
+        showNotice(r.message || 'Session started.', 'info');
+        _dataHash = '';
+        await loadData(); render();
+      } catch (e) {
+        state.sessions = state.sessions.filter(s => s.id !== tempId);
+        render();
+        console.error(e); showNotice('Connection failed.', 'error');
+      }
     }
 
-    function sessionGroups() {
-      const sorted = sortSessions();
-      return {
-        running: sorted.filter(item => item.status === 'running'),
-        pending: sorted.filter(item => item.status === 'pending'),
-        ended: sorted.filter(item => item.status === 'stopped' || item.status === 'failed'),
-      };
+    async function toggleOutput(id) {
+      const box = document.getElementById('output-' + id);
+      if (!box) return;
+      if (box.classList.contains('open')) { box.classList.remove('open'); return; }
+      box.textContent = 'Loading...';
+      box.classList.add('open');
+      try {
+        const res = await fetch(`/api/sessions/${id}/output?tail=80`);
+        const data = await res.json();
+        box.textContent = data.output || '(no output yet)';
+        box.scrollTop = box.scrollHeight;
+      } catch (e) { box.textContent = 'Failed to load.'; }
+    }
+
+    async function killSession(id) {
+      // Optimistic: mark as stopped immediately
+      const s = state.sessions.find(s => s.id === id);
+      if (s) s.status = 'stopped';
+      renderSessions(); updateNav();
+      showNotice('Killed.', 'info');
+
+      try {
+        const res = await fetch(`/api/sessions/${id}/kill`, { method: 'POST' });
+        const r = await res.json();
+        if (r.status !== 'ok') { showNotice(r.message || 'Failed.', 'error'); }
+        _dataHash = '';
+        await loadData(); render();
+      } catch (e) { console.error(e); showNotice('Failed.', 'error'); await loadData(); render(); }
+    }
+
+    async function clearEndedSessions() {
+      const count = state.sessions.filter(s => s.status === 'stopped' || s.status === 'failed').length;
+      state.sessions = state.sessions.filter(s => s.status !== 'stopped' && s.status !== 'failed');
+      renderSessions(); updateNav();
+      showNotice(`Cleared ${count} sessions.`, 'info');
+      try {
+        await fetch('/api/sessions', { method: 'DELETE' });
+        _dataHash = '';
+      } catch (e) { console.error(e); await loadData(); render(); }
+    }
+
+    async function deleteSession(id) {
+      // Optimistic: remove from UI immediately
+      state.sessions = state.sessions.filter(s => s.id !== id);
+      renderSessions(); updateNav();
+      showNotice('Deleted.', 'info');
+
+      try {
+        const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+        const r = await res.json();
+        if (r.status !== 'ok') { showNotice(r.message || 'Failed.', 'error'); }
+        _dataHash = '';
+      } catch (e) { console.error(e); showNotice('Failed.', 'error'); await loadData(); render(); }
     }
 
     function updateNav() {
       const route = routeFromHash();
-      document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.toggle('active', link.dataset.route === route);
-      });
-
-      const pages = {
-        '/': document.getElementById('page-workspaces'),
-        '/sessions': document.getElementById('page-sessions'),
-      };
-      Object.entries(pages).forEach(([key, el]) => el.classList.toggle('active', key === route));
-
-      const activeCount = state.sessions.filter(item => item.status === 'running' || item.status === 'pending').length;
-      sessionsBadgeEl.textContent = String(activeCount);
-      navSummaryEl.textContent = `${state.workspaces.length} workspaces · ${activeCount} active sessions`;
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.route === route));
+      const pages = { '/': $('page-workspaces'), '/sessions': $('page-sessions'), '/discover': $('page-discover') };
+      Object.entries(pages).forEach(([k, el]) => el.classList.toggle('active', k === route));
+      const active = state.sessions.filter(s => s.status === 'running' || s.status === 'pending').length;
+      sessionsBadgeEl.textContent = active;
+      navSummaryEl.textContent = `${state.workspaces.length} workspaces \u00b7 ${active} active`;
     }
 
-    function renderWorkspaces() {
-      if (!state.workspaces.length) {
-        workspaceGridEl.innerHTML = '<div class="empty">No workspaces configured yet.</div>';
-        return;
-      }
-
-      workspaceGridEl.innerHTML = sortedWorkspaces().map((workspace) => {
-        const health = healthByName(workspace.name);
-        const status = workspaceStatus(health);
-        const errors = workspaceErrors(workspace, health);
-        const isHealthy = isWorkspaceHealthy(workspace);
-        const activeHere = state.sessions.filter(session => session.workspot === workspace.name && (session.status === 'running' || session.status === 'pending')).length;
-        const formOpen = isHealthy && state.creatingWorkspace === workspace.name;
-
-        return `
-          <article class="workspace-card">
-            <div class="workspace-header">
-              <div>
-                <div class="workspace-name">${escapeHtml(workspace.name)}</div>
-                <div class="workspace-meta">${escapeHtml(workspace.container || 'Host runtime')}</div>
-              </div>
-              <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
-            </div>
-
-            <div class="workspace-detail-list">
-              <div class="detail-row">
-                <div class="detail-label">Directory</div>
-                <div class="detail-value">${escapeHtml(workspace.dir)}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Runtime</div>
-                <div class="detail-value">${escapeHtml(workspace.runtime)}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Container</div>
-                <div class="detail-value">${escapeHtml(workspace.container || '—')}</div>
-              </div>
-              <div class="detail-row">
-                <div class="detail-label">Active sessions</div>
-                <div class="detail-value">${activeHere}</div>
-              </div>
-            </div>
-
-            ${!isHealthy && errors.length ? `
-              <div class="workspace-errors">
-                ${errors.map(error => `<div class="workspace-error">${escapeHtml(error)}</div>`).join('')}
-              </div>
-            ` : ''}
-
-            <div class="card-actions">
-              <button type="button" class="primary" onclick="toggleStartForm('${escapeHtml(workspace.name)}')" ${isHealthy ? '' : 'disabled'}>Start Session</button>
-              <a class="button-link ghost" href="#/sessions">View Sessions</a>
-            </div>
-
-            <div class="inline-form ${formOpen ? 'open' : ''}" id="form-${escapeHtml(workspace.name)}">
-              <div class="section-title">Start a new session</div>
-              <div class="field-grid">
-                <label>
-                  Optional label
-                  <input id="label-${escapeHtml(workspace.name)}" type="text" placeholder="review, docs, bugfix">
-                </label>
-                <label>
-                  Optional branch
-                  <input id="branch-${escapeHtml(workspace.name)}" type="text" placeholder="feature/my-branch">
-                </label>
-              </div>
-              <div class="inline-actions">
-                <button type="button" class="primary" onclick="startSession('${escapeHtml(workspace.name)}')">Start</button>
-                <button type="button" class="ghost" onclick="toggleStartForm('${escapeHtml(workspace.name)}', false)">Cancel</button>
-              </div>
-            </div>
-          </article>
-        `;
-      }).join('');
-    }
-
-    function renderEmpty(message) {
-      return `<div class="empty">${escapeHtml(message)}</div>`;
-    }
-
-    function renderSessionCard(session, { showKill = false, showDelete = false, pending = false } = {}) {
-      const statusClass = session.status === 'running'
-        ? 'status-running'
-        : session.status === 'pending'
-          ? 'status-pending'
-          : session.status === 'failed'
-            ? 'status-unhealthy'
-            : 'status-stopped';
-
-      return `
-        <article class="session-card ${escapeHtml(session.status)}">
-          <div class="session-header">
-            <div>
-              <div class="session-title">${escapeHtml(session.label || session.id)}</div>
-              <div class="session-meta">${escapeHtml(session.workspot)} · ${escapeHtml(session.status)}</div>
-            </div>
-            <div class="row">
-              ${pending ? '<span class="spinner" aria-hidden="true"></span>' : ''}
-              <span class="status-pill ${statusClass}">${escapeHtml(session.status)}</span>
-            </div>
-          </div>
-
-          <div class="session-detail-list">
-            <div class="detail-row">
-              <div class="detail-label">URL</div>
-              <div class="detail-value">${session.url ? `<a class="session-link" href="${escapeHtml(session.url)}" target="_blank" rel="noopener">${escapeHtml(session.url)}</a>` : 'Waiting for URL'}</div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Workspot</div>
-              <div class="detail-value">${escapeHtml(session.workspot)}</div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Branch</div>
-              <div class="detail-value">${escapeHtml(session.branch || '—')}</div>
-            </div>
-            <div class="detail-row">
-              <div class="detail-label">Started</div>
-              <div class="detail-value">${escapeHtml(formatTime(session.created_at))}</div>
-            </div>
-          </div>
-
-          <div class="session-actions">
-            ${showKill ? `<button type="button" class="danger" onclick="killSession('${escapeHtml(session.id)}')">Kill</button>` : ''}
-            ${showDelete ? `<button type="button" class="danger" onclick="deleteSession('${escapeHtml(session.id)}')">Delete</button>` : ''}
-          </div>
-        </article>
-      `;
-    }
-
-    function renderSessions() {
-      const groups = sessionGroups();
-      runningCountEl.textContent = String(groups.running.length);
-      pendingCountEl.textContent = String(groups.pending.length);
-      endedCountEl.textContent = String(groups.ended.length);
-
-      runningListEl.innerHTML = groups.running.length
-        ? groups.running.map(session => renderSessionCard(session, { showKill: true })).join('')
-        : renderEmpty('No running sessions right now.');
-
-      pendingListEl.innerHTML = groups.pending.length
-        ? groups.pending.map(session => renderSessionCard(session, { pending: true, showKill: true })).join('')
-        : renderEmpty('Nothing pending.');
-
-      endedListEl.innerHTML = groups.ended.length
-        ? groups.ended.map(session => renderSessionCard(session, { showDelete: true })).join('')
-        : renderEmpty('No stopped or failed sessions yet.');
-    }
-
-    function render() {
+    function render(isBackgroundRefresh = false) {
       updateNav();
-      renderWorkspaces();
+      // Skip workspace re-render if form is open during background refresh
+      if (!(isBackgroundRefresh && state.creatingWorkspace)) {
+        renderWorkspaces();
+      }
       renderSessions();
-    }
-
-    function toggleStartForm(workspaceName, force) {
-      const workspace = state.workspaces.find(item => item.name === workspaceName);
-      if (workspace && !isWorkspaceHealthy(workspace)) {
-        return;
+      // Only render discovery on explicit navigations, not background refreshes
+      if (!isBackgroundRefresh) {
+        renderDiscovery();
+        if (routeFromHash() === '/discover' && !state.discovered && !state.scanning) runDiscovery();
       }
-
-      const next = typeof force === 'boolean'
-        ? (force ? workspaceName : null)
-        : (state.creatingWorkspace === workspaceName ? null : workspaceName);
-      state.creatingWorkspace = next;
-      renderWorkspaces();
-    }
-
-    async function startSession(workspaceName) {
-      const workspace = state.workspaces.find(item => item.name === workspaceName);
-      if (workspace && !isWorkspaceHealthy(workspace)) {
-        showNotice(`Workspace ${workspaceName} needs attention before starting a session.`, 'error');
-        return;
-      }
-      const labelEl = document.getElementById(`label-${workspaceName}`);
-      const branchEl = document.getElementById(`branch-${workspaceName}`);
-      const payload = {
-        workspot: workspaceName,
-        worktree: false,
-        label: labelEl?.value.trim() || null,
-        branch: branchEl?.value.trim() || null,
-        directory: null,
-      };
-
-      showNotice(`Starting a new session in ${workspaceName}…`, 'info');
-
-      try {
-        const response = await fetch('/api/sessions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const result = await response.json();
-        if (result.status !== 'ok') {
-          showNotice(result.message || 'Failed to start session.', 'error');
-          return;
-        }
-
-        state.creatingWorkspace = null;
-        showNotice(result.message || `Session started in ${workspaceName}.`, 'info');
-        await loadData();
-        setRoute('/sessions');
-        render();
-      } catch (error) {
-        console.error(error);
-        showNotice('Could not reach the launcher backend.', 'error');
-      }
-    }
-
-    async function killSession(sessionId) {
-      showNotice(`Killing session ${sessionId}…`, 'info');
-      try {
-        const response = await fetch(`/api/sessions/${sessionId}/kill`, { method: 'POST' });
-        const result = await response.json();
-        if (result.status !== 'ok') {
-          showNotice(result.message || 'Failed to kill session.', 'error');
-          return;
-        }
-        showNotice(`Killed session ${sessionId}.`, 'info');
-        await loadData();
-        render();
-      } catch (error) {
-        console.error(error);
-        showNotice('Could not kill the session.', 'error');
-      }
-    }
-
-    async function deleteSession(sessionId) {
-      showNotice(`Deleting session ${sessionId}…`, 'info');
-      try {
-        const response = await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-        const result = await response.json();
-        if (result.status !== 'ok') {
-          showNotice(result.message || 'Failed to delete session.', 'error');
-          return;
-        }
-        showNotice(`Deleted session ${sessionId}.`, 'info');
-        await loadData();
-        render();
-      } catch (error) {
-        console.error(error);
-        showNotice('Could not delete the session.', 'error');
-      }
-    }
-
-    async function loadData() {
-      const [workspacesRes, healthRes, sessionsRes] = await Promise.all([
-        fetch('/api/workspots'),
-        fetch('/api/workspots/health'),
-        fetch('/api/sessions'),
-      ]);
-
-      if (!workspacesRes.ok || !healthRes.ok || !sessionsRes.ok) {
-        throw new Error('Failed to load launcher data');
-      }
-
-      state.workspaces = await workspacesRes.json();
-      state.workspaceHealth = await healthRes.json();
-      state.sessions = await sessionsRes.json();
     }
 
     function scheduleRefresh() {
       clearTimeout(state.refreshTimer);
-      const hasPending = state.sessions.some(session => session.status === 'pending');
-      state.refreshTimer = window.setTimeout(async () => {
+      const fast = state.sessions.some(s => s.status === 'pending');
+      state.refreshTimer = setTimeout(async () => {
         try {
-          await loadData();
-          render();
-        } catch (error) {
-          console.error(error);
-          showNotice('Refresh failed. Trying again soon.', 'error');
-        }
+          const changed = await loadData();
+          if (changed) render(true);
+        } catch (e) { console.error(e); }
         scheduleRefresh();
-      }, hasPending ? 2500 : 10000);
+      }, fast ? 3000 : 15000);
     }
 
     async function boot() {
-      document.getElementById('back-button').addEventListener('click', () => setRoute('/'));
       window.addEventListener('hashchange', render);
-
-      try {
-        await loadData();
-        render();
-        showNotice('Launcher ready.', 'info');
-      } catch (error) {
-        console.error(error);
-        showNotice('Could not load launcher data.', 'error');
-      }
-
+      try { await loadData(); render(); showNotice('Launcher ready.', 'info'); }
+      catch (e) { console.error(e); showNotice('Could not load.', 'error'); }
       scheduleRefresh();
     }
 
     window.toggleStartForm = toggleStartForm;
+    window.onWorktreeToggle = onWorktreeToggle;
     window.startSession = startSession;
+    window.toggleOutput = toggleOutput;
     window.killSession = killSession;
     window.deleteSession = deleteSession;
+    window.runDiscovery = runDiscovery;
+    window.addWorkspot = addWorkspot;
+    window.removeWorkspot = removeWorkspot;
+    window.clearEndedSessions = clearEndedSessions;
+    window.setRoute = setRoute;
 
     boot();
   </script>

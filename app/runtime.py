@@ -26,8 +26,14 @@ class DockerRuntimeAdapter:
         self.local_env = local_env or {}
 
     def _env_args(self, workspot: Workspot) -> list[str]:
+        # Only pass workspot-level env + essential overrides (HOME, XDG).
+        # Do NOT pass full host os.environ — that leaks secrets into containers.
+        essential = {}
+        for key in ("HOME", "XDG_DATA_HOME"):
+            if key in self.local_env:
+                essential[key] = self.local_env[key]
         args: list[str] = []
-        for key, value in {**self.local_env, **workspot.env}.items():
+        for key, value in {**essential, **workspot.env}.items():
             args.extend(["-e", f"{key}={value}"])
         return args
 
@@ -89,7 +95,9 @@ class HostRuntimeAdapter:
         self.local_env = local_env or {}
 
     def _env(self, workspot: Workspot) -> dict[str, str]:
-        return {**os.environ, **self.local_env, **workspot.env}
+        # Host workspots use the real OS environment; only overlay workspot-level env.
+        # Deliberately skip self.local_env (HOME/XDG overrides meant for Docker).
+        return {**os.environ, **workspot.env}
 
     async def run(self, workspot: Workspot, args: list[str], *, cwd: Optional[str] = None) -> CommandResult:
         proc = await asyncio.create_subprocess_exec(

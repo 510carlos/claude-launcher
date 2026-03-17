@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import fcntl
 import json
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -11,6 +13,17 @@ from app.models import RegistryState, ServerRecord, SessionRecord, SessionStatus
 class SessionRegistry:
     def __init__(self, path: Path):
         self.path = path
+
+    @contextmanager
+    def _lock(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self.path.with_suffix(".lock")
+        with open(lock_path, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     def load(self) -> RegistryState:
         if not self.path.exists():
@@ -27,35 +40,48 @@ class SessionRegistry:
         return state
 
     def upsert_server(self, record: ServerRecord) -> ServerRecord:
-        state = self.load()
-        for index, existing in enumerate(state.servers):
-            if existing.server_key == record.server_key:
-                state.servers[index] = record
-                self.save(state)
-                return record
-        state.servers.append(record)
-        self.save(state)
-        return record
+        with self._lock():
+            state = self.load()
+            for index, existing in enumerate(state.servers):
+                if existing.server_key == record.server_key:
+                    state.servers[index] = record
+                    self.save(state)
+                    return record
+            state.servers.append(record)
+            self.save(state)
+            return record
 
     def upsert_session(self, record: SessionRecord) -> SessionRecord:
-        state = self.load()
-        for index, existing in enumerate(state.sessions):
-            if existing.id == record.id:
-                state.sessions[index] = record
-                self.save(state)
-                return record
-        state.sessions.append(record)
-        self.save(state)
-        return record
+        with self._lock():
+            state = self.load()
+            for index, existing in enumerate(state.sessions):
+                if existing.id == record.id:
+                    state.sessions[index] = record
+                    self.save(state)
+                    return record
+            state.sessions.append(record)
+            self.save(state)
+            return record
 
     def delete_session(self, session_id: str) -> bool:
-        state = self.load()
-        original_count = len(state.sessions)
-        state.sessions = [session for session in state.sessions if session.id != session_id]
-        if len(state.sessions) == original_count:
-            return False
-        self.save(state)
-        return True
+        with self._lock():
+            state = self.load()
+            original_count = len(state.sessions)
+            state.sessions = [session for session in state.sessions if session.id != session_id]
+            if len(state.sessions) == original_count:
+                return False
+            self.save(state)
+            return True
+
+    def delete_ended_sessions(self) -> int:
+        with self._lock():
+            state = self.load()
+            original = len(state.sessions)
+            state.sessions = [s for s in state.sessions if s.status not in {SessionStatus.stopped, SessionStatus.failed}]
+            removed = original - len(state.sessions)
+            if removed:
+                self.save(state)
+            return removed
 
     def get_session(self, session_id: str) -> SessionRecord | None:
         return next((item for item in self.load().sessions if item.id == session_id), None)
@@ -90,25 +116,26 @@ class SessionRegistry:
         metadata: dict | None = None,
         source: str | None = None,
     ) -> SessionRecord | None:
-        state = self.load()
-        now = datetime.now(timezone.utc)
-        for index, session in enumerate(state.sessions):
-            if session.id != session_id:
-                continue
-            updated = session.model_copy(
-                update={
-                    "status": status or session.status,
-                    "url": url if url is not None else session.url,
-                    "branch": branch if branch is not None else session.branch,
-                    "last_seen_at": now,
-                    "source": source or session.source,
-                    "metadata": {**session.metadata, **(metadata or {})},
-                }
-            )
-            state.sessions[index] = updated
-            self.save(state)
-            return updated
-        return None
+        with self._lock():
+            state = self.load()
+            now = datetime.now(timezone.utc)
+            for index, session in enumerate(state.sessions):
+                if session.id != session_id:
+                    continue
+                updated = session.model_copy(
+                    update={
+                        "status": status or session.status,
+                        "url": url if url is not None else session.url,
+                        "branch": branch if branch is not None else session.branch,
+                        "last_seen_at": now,
+                        "source": source or session.source,
+                        "metadata": {**session.metadata, **(metadata or {})},
+                    }
+                )
+                state.sessions[index] = updated
+                self.save(state)
+                return updated
+            return None
 
     def list_sessions(self, *, workspot: Optional[str] = None) -> list[SessionRecord]:
         state = self.load()

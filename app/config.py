@@ -23,10 +23,14 @@ class AppConfig:
     url_capture_timeout: int
     session_registry_file: Path
     session_history_file: Path
+    workspot_config_file: Path
     max_sessions: int
     default_server_capacity: int
     workspots: list[Workspot]
     local_claude_env: dict[str, str]
+    discovery_scan_dirs: list[str]
+    discovery_docker_enabled: bool
+    discovery_local_enabled: bool
 
     def get_workspot(self, name: str) -> Workspot | None:
         return next((workspot for workspot in self.workspots if workspot.name == name), None)
@@ -76,6 +80,9 @@ def load_config() -> AppConfig:
         "XDG_DATA_HOME": os.getenv("LOCAL_CLAUDE_XDG_DATA_HOME", "/home/claude-share"),
     }
 
+    scan_dirs_raw = os.getenv("DISCOVERY_SCAN_DIRS", "~/git/")
+    scan_dirs = [d.strip() for d in scan_dirs_raw.split(",") if d.strip()]
+
     return AppConfig(
         claude_global_flags=os.getenv("CLAUDE_GLOBAL_FLAGS", ""),
         claude_rc_flags=os.getenv("CLAUDE_RC_FLAGS", ""),
@@ -83,8 +90,12 @@ def load_config() -> AppConfig:
         url_capture_timeout=int(os.getenv("URL_CAPTURE_TIMEOUT", "30")),
         session_registry_file=Path(os.getenv("SESSION_REGISTRY_FILE", "/data/session-registry.json")),
         session_history_file=Path(os.getenv("SESSION_HISTORY_FILE", "/data/sessions.json")),
+        workspot_config_file=Path(os.getenv("WORKSPOT_CONFIG_FILE", "/data/workspots.json")),
         max_sessions=int(os.getenv("MAX_SESSIONS", "10")),
         default_server_capacity=default_server_capacity,
         workspots=_parse_workspots(default_server_capacity),
         local_claude_env=local_claude_env,
+        discovery_scan_dirs=scan_dirs,
+        discovery_docker_enabled=os.getenv("DISCOVERY_DOCKER_ENABLED", "true").lower() == "true",
+        discovery_local_enabled=os.getenv("DISCOVERY_LOCAL_ENABLED", "true").lower() == "true",
     )

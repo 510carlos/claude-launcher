@@ -12,6 +12,17 @@ class RuntimeType(str, Enum):
     host = "host"
 
 
+class WorkspotSource(str, Enum):
+    env = "env"
+    file = "file"
+
+
+class DiscoveryCompatibility(str, Enum):
+    compatible = "compatible"
+    partial = "partial"
+    incompatible = "incompatible"
+
+
 class ServerStatus(str, Enum):
     unknown = "unknown"
     running = "running"
@@ -35,6 +46,7 @@ class Workspot(BaseModel):
     server_capacity: int = 32
     env: dict[str, str] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    source: WorkspotSource = WorkspotSource.env
 
     @field_validator("container")
     @classmethod
@@ -112,3 +124,27 @@ class SessionHookPayload(BaseModel):
     status: SessionStatus = SessionStatus.running
     source: str = "hook"
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class DiscoveredEnvironment(BaseModel):
+    name: str
+    runtime: RuntimeType
+    dir: str
+    container: Optional[str] = None
+    claude_bin: Optional[str] = None
+    compatibility: DiscoveryCompatibility
+    checks: dict[str, bool] = Field(default_factory=dict)
+    issues: list[str] = Field(default_factory=list)
+    already_configured: bool = False
+    image: Optional[str] = None
+    container_status: Optional[str] = None
+
+
+class AddWorkspotRequest(BaseModel):
+    name: str
+    runtime: RuntimeType = RuntimeType.host
+    dir: str
+    container: Optional[str] = None
+    claude_bin: str = "claude"
+    server_capacity: int = 32
+    env: dict[str, str] = Field(default_factory=dict)
