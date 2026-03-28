@@ -109,7 +109,24 @@ async def index():
 
 @app.get("/manifest.json")
 async def manifest():
-    return FileResponse(_resolve_static("manifest.json"))
+    name = config.app_name
+    short = f"{name} - CL" if name != "Claude Launcher" else "Claude"
+    return JSONResponse({
+        "name": f"{name} - Claude Launcher",
+        "short_name": short,
+        "description": "Start Claude Code sessions in your dev environment",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0b1220",
+        "theme_color": "#0b1220",
+        "orientation": "portrait",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }, headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/sw.js")

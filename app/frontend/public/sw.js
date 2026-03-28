@@ -1,5 +1,5 @@
-const CACHE = 'claude-launcher-v4';
-const SHELL = ['/', '/static/manifest.json'];
+const CACHE = 'claude-launcher-v5';
+const SHELL = ['/'];
 const API_PATHS = ['/api/', '/start', '/start-worktree', '/kill', '/status', '/sessions', '/workspots'];
 
 self.addEventListener('install', e => {
