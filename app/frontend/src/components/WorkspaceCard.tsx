@@ -124,30 +124,30 @@ export function WorkspaceCard({ workspace: ws }: Props) {
         </div>
       )}
 
-      <div class="actions">
+      <div class="actions" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>
         {activeSession
-          ? <button class="btn btn-primary btn-sm" onClick={openExisting}>Open</button>
+          ? <button class="btn btn-primary btn-sm" onClick={openExisting}>{'\u{1F517}'} Open</button>
           : <button class="btn btn-primary btn-sm" onClick={quickLaunch} disabled={!ok || hasPending}>
-              {hasPending ? 'Starting\u2026' : 'Launch'}
+              {hasPending ? '\u23f3 Starting\u2026' : '\u25b6 Launch'}
             </button>
         }
         {activeSession && (
-          <button class="btn btn-ghost btn-sm" onClick={quickLaunch} disabled={!ok}>New Session</button>
+          <button class="btn btn-ghost btn-sm" onClick={quickLaunch} disabled={!ok}>{'\u2795'} New</button>
         )}
         {h?.has_devcontainer && (
           <button class="btn btn-ghost btn-sm" onClick={launchInContainer} disabled={!ok || hasPending}>
-            {h.devcontainer_status === 'running' ? 'Container' : 'Start Container'}
+            {h.devcontainer_status === 'running' ? '\u{1F4E6} Dev' : '\u{1F4E6} Dev'}
           </button>
         )}
-        <button class="btn btn-ghost btn-sm" onClick={toggleOptions} disabled={!ok}>Options</button>
+        <button class="btn btn-ghost btn-sm" onClick={toggleOptions} disabled={!ok}>{'\u2699'} Options</button>
         {!ok && (
           <>
-            <button class="btn btn-primary btn-sm" onClick={handleFix}>Fix</button>
-            <button class="btn btn-ghost btn-sm" onClick={handleRecheck}>Recheck</button>
+            <button class="btn btn-primary btn-sm" onClick={handleFix}>{'\u{1F527}'} Fix</button>
+            <button class="btn btn-ghost btn-sm" onClick={handleRecheck}>{'\u{1F504}'} Recheck</button>
           </>
         )}
         {ws.source === 'file' && (
-          <button class="btn btn-danger btn-sm" onClick={handleRemove}>Remove</button>
+          <button class="btn btn-danger btn-sm" onClick={handleRemove}>{'\u{1F5D1}'} Remove</button>
         )}
       </div>
 
