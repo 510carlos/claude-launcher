@@ -1,6 +1,7 @@
 import { listWorkspaces, getHealth } from '../api/workspaces';
 import { listSessions } from '../api/sessions';
-import { workspaces, sessions, health, activeSessions, clearPhaseTimer, pendingPhases } from './signals';
+import { runDiscovery } from '../api/discovery';
+import { workspaces, sessions, health, activeSessions, clearPhaseTimer, pendingPhases, discoveryResult, scanning } from './signals';
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let lastHash = '';
@@ -46,6 +47,18 @@ export function loadFromCache() {
   } catch { /* corrupt cache */ }
 }
 
+async function backgroundScan() {
+  if (scanning.value) return;
+  scanning.value = true;
+  try {
+    discoveryResult.value = await runDiscovery();
+  } catch (e) {
+    console.error('Background scan failed:', e);
+  } finally {
+    scanning.value = false;
+  }
+}
+
 export function startPolling() {
   const poll = async () => {
     try { await refresh(); } catch (e) { console.error('Poll failed:', e); }
@@ -53,6 +66,8 @@ export function startPolling() {
     timer = setTimeout(poll, fast ? 3000 : 15000);
   };
   poll();
+  // Silently scan for new workspots after a short delay so it doesn't block initial load
+  setTimeout(backgroundScan, 3000);
 }
 
 export function stopPolling() {

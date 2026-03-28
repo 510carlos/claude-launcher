@@ -158,9 +158,11 @@ Or skip manual config entirely — set `WORKSPOTS=[]` and use the **Discover** f
 | `DISCOVERY_SCAN_DIRS` | `~/git/` | Comma-separated directories for auto-discovery |
 | `DISCOVERY_DOCKER_ENABLED` | `true` | Enable Docker container scanning |
 | `DISCOVERY_LOCAL_ENABLED` | `true` | Enable local directory scanning |
+| `LOCAL_CLAUDE_HOME` | `/home/claude-config` | HOME dir for the launcher's own Claude process (Docker deployments — prevents credential leakage into workspot containers) |
+| `LOCAL_CLAUDE_XDG_DATA_HOME` | `/home/claude-share` | XDG_DATA_HOME for the launcher's own Claude process |
 | `TAILSCALE_AUTHKEY` | — | Tailscale auth key for remote access |
-| `TAILSCALE_HOSTNAME` | `claude-launcher` | Hostname shown in your Tailscale admin panel |
-| `TS_KEY_EXPIRES` | — | Auth key expiry date |
+| `TAILSCALE_HOSTNAME` | `csl` | Hostname shown in your Tailscale admin panel |
+| `TS_KEY_EXPIRES` | — | Auth key expiry date (ISO format, used for expiry warnings) |
 
 ## Tailscale Setup
 
@@ -278,6 +280,113 @@ curl -X POST http://localhost:8765/api/sessions \
 ```
 
 Fields: `workspot` (required), `label` (string), `branch` (string), `worktree` (boolean), `directory` (string).
+
+## UI/UX Design
+
+> **This section exists to help anyone — human designer or AI agent — understand the current UI well enough to reason about redesigns.**
+
+### Design Philosophy
+
+This is a **mobile-first app**. 90% of real usage is on a phone, away from a desk. Every design decision flows from that:
+
+- **48px minimum tap targets** on all interactive elements (no precision tapping required)
+- **Single-column layout** on mobile, expanding to 2 → 3 columns only on larger screens
+- **Sticky top bar** — navigation is always within thumb reach
+- **Optimistic updates** — the UI responds instantly; server sync happens in the background
+- **Dark navy theme** — for low-light environments (couch, bed, late nights coding)
+- **One primary action per card** — "Launch" or "Open in Claude", never competing with secondary actions
+
+### Visual Language
+
+**Color system** (all as CSS variables in `app/frontend/src/app.css`):
+- Background: `#0b1220` → `#0a1020` gradient (deep navy)
+- Card surface: `rgba(15, 23, 42, 0.92)` — semi-transparent, layered depth
+- Top bar: frosted glass with `backdrop-filter: blur(16px)`
+- Accent blue: `#60a5fa` — primary actions, focus rings
+- Status green `#22c55e` / yellow `#f59e0b` / red `#f87171` — running / pending / failed
+- Muted text: `#94a3b8`
+
+**Status indicators** — pill badges with a colored dot (`::before` pseudo-element, no icons):
+- Green dot = running / healthy / compatible
+- Yellow dot = pending / needs attention / partial
+- Red dot = failed / error
+- No dot = neutral count
+
+**Buttons:**
+- `btn-primary` — blue gradient, for the main action ("Launch", "Start")
+- `btn-ghost` — low-contrast, for secondary actions ("Options", "Output")
+- `btn-danger` — red-tinted, for destructive actions ("Stop", "Remove")
+- `open-btn` — full-width green button, reserved exclusively for "Open in Claude"
+
+### Screen Layout
+
+```
+┌──────────────────────────────┐  ← sticky top bar (frosted glass)
+│  Claude Launcher      [Discover]│
+├──────────────────────────────┤
+│  ▲ ACTIVE SESSIONS           │  ← hidden when empty
+│  ┌──────────────────────┐    │
+│  │ my-project           │    │
+│  │ label · 2m ago       │    │
+│  │ [▓▓▓▓▓▓▒▒] waiting.. │    │  ← ProgressSteps (pending)
+│  │ [     Output     ]   │    │
+│  └──────────────────────┘    │
+│                              │
+│  WORKSPACES                  │
+│  ┌──────────┐ ┌──────────┐   │  ← 1 col mobile, 2-3 col desktop
+│  │ exxdev   │ │ claude-  │   │
+│  │ Host   ● │ │ bot ●    │   │
+│  │ /worksp..│ │ /worksp..│   │
+│  │[Launch][⋯]│[Launch][⋯]│   │
+│  └──────────┘ └──────────┘   │
+│                              │
+│  ▶ RECENT (2)                │  ← collapsed by default
+└──────────────────────────────┘
+```
+
+### Key Interaction Flows
+
+**Quick launch (most common path):**
+1. Tap **Launch** on a workspace card
+2. Optimistic pending card appears at the top of the page
+3. Page auto-scrolls to top so the new card is visible
+4. ProgressSteps shows: Spawning → Waiting for URL → Ready
+5. When URL is captured, card transitions to running state
+6. Full-width **Open in Claude** green button appears
+7. Tap it → Claude mobile app opens connected to the dev environment
+
+**Launch with options:**
+1. Tap **Options** on a workspace card
+2. `OptionsForm` expands inline within the same card (not a modal/overlay)
+3. Set: custom label, branch name, worktree toggle (auto-fills a random branch name when checked)
+4. Tap **Start with options** → same flow as quick launch
+
+**Workspace in bad health:**
+1. Card shows health errors (red-tinted inline error boxes)
+2. **Launch** is disabled
+3. **Fix** button attempts auto-repair (workspace trust, etc.)
+4. **Recheck** re-runs health checks after manual intervention
+
+**Discovery flow:**
+1. Tap **Discover** in the top bar
+2. Page auto-scans immediately on load (no extra tap)
+3. Results appear grouped: Compatible (green) / Needs Setup (yellow) / Not Ready (gray)
+4. Each card shows: name, runtime type, issues list, last git activity
+5. Tap **+ Add** → workspot added, navigates back to dashboard
+
+### Design Decisions Worth Revisiting
+
+These are areas where the current design has known tradeoffs and might benefit from rethinking:
+
+- **Inline OptionsForm vs. bottom sheet** — The form expands within the workspace card, which works on desktop but can feel cramped on mobile when the card is near the bottom of the viewport. A bottom sheet or modal might work better for phones.
+
+- **Session cards in a flat list** — All sessions are in one flat list sorted by time. With many workspaces and sessions, scanning becomes hard. Grouping by workspace could help.
+
+- **No global status indicator** — There's no persistent "N sessions running" indicator in the top bar. You have to scroll down to see session state.
+
+- **ProgressSteps is time-based** — Launch progress is shown as estimated steps based on elapsed time, not actual server events. This can be misleading if a session is taking longer than expected.
+
+- **Discovery is on a separate page** — First-time users with no workspaces configured land on an empty dashboard with no clear path to adding workspaces. Moving discovery inline or surfacing it more prominently could improve onboarding.
 
 ## Architecture
 

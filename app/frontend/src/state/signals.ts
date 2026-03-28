@@ -30,6 +30,11 @@ export const route = signal<'/' | '/discover'>('/');
 export const notices = signal<{ id: number; msg: string; kind: 'info' | 'error' }[]>([]);
 export const discoveryResult = signal<DiscoveryResult | null>(null);
 export const scanning = signal(false);
+export const newDiscoveryCount = computed(() => {
+  const r = discoveryResult.value;
+  if (!r) return 0;
+  return r.compatible.filter(e => !e.already_configured).length;
+});
 export const recentOpen = signal(false);
 export const optionsWorkspace = signal<string | null>(null);
 

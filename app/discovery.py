@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -223,8 +224,76 @@ async def scan_docker_containers(existing_names: set[str]) -> list[DiscoveredEnv
     return results
 
 
+_SKIP_DIRS = {
+    "node_modules", "vendor", "dist", "build", ".cache", "__pycache__",
+    "venv", ".venv", "env", ".npm", ".yarn", "target", "out",
+    ".next", ".nuxt", "coverage", ".tox", "htmlcov", ".gradle", ".mvn",
+}
+
+
+def _find_git_repos(base_dir: str, max_depth: int = 3) -> list[str]:
+    repos: list[str] = []
+    base = Path(base_dir)
+    if not base.is_dir():
+        return repos
+
+    def walk(path: Path, depth: int) -> None:
+        if depth > max_depth:
+            return
+        if (path / ".git").is_dir():
+            repos.append(str(path))
+            return  # don't recurse into sub-repos
+        try:
+            for entry in path.iterdir():
+                if not entry.is_dir() or entry.is_symlink():
+                    continue
+                if entry.name.startswith(".") or entry.name in _SKIP_DIRS:
+                    continue
+                walk(entry, depth + 1)
+        except PermissionError:
+            pass
+
+    walk(base, 0)
+    return repos
+
+
+async def _git_last_commit_ts(repo_path: str) -> Optional[int]:
+    rc, stdout, _ = await _exec(
+        ["git", "-C", repo_path, "log", "-1", "--format=%ct"], timeout=5.0
+    )
+    if rc == 0 and stdout.strip().isdigit():
+        return int(stdout.strip())
+    return None
+
+
+def _activity_label(days: int) -> str:
+    if days == 0:
+        return "active today"
+    if days < 7:
+        return f"active {days}d ago"
+    if days < 30:
+        return f"active {days // 7}w ago"
+    if days < 365:
+        return f"active {days // 30}mo ago"
+    return f"inactive {days // 365}y"
+
+
+def _score(days: Optional[int], has_claude_setup: bool) -> int:
+    s = 30 if has_claude_setup else 0
+    if days is None:
+        return s
+    if days < 7:
+        return s + 20
+    if days < 30:
+        return s + 10
+    if days < 90:
+        return s + 5
+    if days < 365:
+        return s + 1
+    return s
+
+
 async def scan_local_directories(scan_dirs: list[str], existing_names: set[str]) -> list[DiscoveredEnvironment]:
-    # Check host-level Claude availability once
     claude_rc, claude_path, _ = await _exec(["which", "claude"])
     has_claude = claude_rc == 0
     claude_bin = claude_path if has_claude else None
@@ -233,59 +302,60 @@ async def scan_local_directories(scan_dirs: list[str], existing_names: set[str])
     creds_path = os.path.join(home, ".claude", ".credentials.json")
     is_auth = os.path.isfile(creds_path) and os.path.getsize(creds_path) > 0
 
-    results: list[DiscoveredEnvironment] = []
-
+    repo_paths: list[str] = []
     for scan_dir in scan_dirs:
         expanded = os.path.expanduser(scan_dir)
-        if not os.path.isdir(expanded):
-            continue
+        repo_paths.extend(_find_git_repos(expanded))
 
-        rc, stdout, _ = await _exec(
-            ["find", expanded, "-maxdepth", "2", "-name", ".git", "-type", "d"],
-            timeout=15.0,
-        )
-        if rc != 0 or not stdout:
-            continue
+    now = time.time()
+    results: list[DiscoveredEnvironment] = []
 
-        for line in stdout.strip().split("\n"):
-            repo_path = line.replace("/.git", "")
-            if not repo_path or not os.path.isdir(repo_path):
-                continue
+    for repo_path in repo_paths:
+        repo = Path(repo_path)
+        has_claude_setup = (repo / ".claude").is_dir() or (repo / "CLAUDE.md").exists()
 
-            issues = []
-            if not has_claude:
-                issues.append("Claude CLI not on PATH")
-            if not is_auth:
-                issues.append("Not authenticated — run claude login")
+        last_ts = await _git_last_commit_ts(repo_path)
+        days = int((now - last_ts) / 86400) if last_ts else None
+        label = _activity_label(days) if days is not None else None
+        score = _score(days, has_claude_setup)
 
-            if has_claude and is_auth:
-                compat = DiscoveryCompatibility.compatible
-            elif has_claude:
-                compat = DiscoveryCompatibility.partial
-            else:
-                compat = DiscoveryCompatibility.incompatible
+        issues: list[str] = []
+        if not has_claude:
+            issues.append("Claude CLI not on PATH")
+        if not is_auth:
+            issues.append("Not authenticated — run claude login")
 
-            repo_name = Path(repo_path).name
-            already = repo_name in existing_names
+        if has_claude and is_auth:
+            compat = DiscoveryCompatibility.compatible
+        elif has_claude:
+            compat = DiscoveryCompatibility.partial
+        else:
+            compat = DiscoveryCompatibility.incompatible
 
-            results.append(DiscoveredEnvironment(
-                name=repo_name,
-                runtime=RuntimeType.host,
-                dir=repo_path,
-                container=None,
-                claude_bin=claude_bin,
-                compatibility=compat,
-                checks={
-                    "runtime_ok": True,
-                    "repo_exists": True,
-                    "git_ok": True,
-                    "claude_bin_ok": has_claude,
-                    "auth_ok": is_auth,
-                },
-                issues=issues,
-                already_configured=already,
-            ))
+        repo_name = repo.name
+        results.append(DiscoveredEnvironment(
+            name=repo_name,
+            runtime=RuntimeType.host,
+            dir=repo_path,
+            container=None,
+            claude_bin=claude_bin,
+            compatibility=compat,
+            checks={
+                "runtime_ok": True,
+                "repo_exists": True,
+                "git_ok": True,
+                "claude_bin_ok": has_claude,
+                "auth_ok": is_auth,
+            },
+            issues=issues,
+            already_configured=repo_name in existing_names,
+            last_commit_days_ago=days,
+            has_claude_setup=has_claude_setup,
+            activity_label=label,
+            score=score,
+        ))
 
+    results.sort(key=lambda r: r.score, reverse=True)
     return results
 
 
@@ -307,6 +377,7 @@ async def discover_all(
     for result_list in await asyncio.gather(*tasks):
         all_results.extend(result_list)
 
+    all_results.sort(key=lambda r: r.score, reverse=True)
     compatible = [r.model_dump() for r in all_results if r.compatibility == DiscoveryCompatibility.compatible]
     partial = [r.model_dump() for r in all_results if r.compatibility == DiscoveryCompatibility.partial]
     incompatible = [r.model_dump() for r in all_results if r.compatibility == DiscoveryCompatibility.incompatible]
