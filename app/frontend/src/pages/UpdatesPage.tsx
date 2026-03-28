@@ -100,6 +100,29 @@ export function UpdatesPage() {
       {!check && !checking && (
         <div class="empty">Could not check for updates.</div>
       )}
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Reset App Cache</div>
+            <div class="panel-sub">Clears cached assets so the home screen shortcut picks up new icons and name.</div>
+          </div>
+        </div>
+        <button class="btn btn-danger btn-full" onClick={async () => {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+            const reg = await navigator.serviceWorker?.getRegistration();
+            if (reg) await reg.unregister();
+            localStorage.clear();
+            setResult('Cache cleared! Delete your home screen shortcut and re-add it to get the new icon/name.');
+          } catch {
+            setResult('Failed to clear cache.');
+          }
+        }}>
+          {'\u{1F5D1}'} Clear Cache
+        </button>
+      </div>
     </>
   );
 }
