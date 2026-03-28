@@ -1,90 +1,103 @@
 from __future__ import annotations
 
-import fcntl
 import json
-from contextlib import contextmanager
+import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
-from app.models import RegistryState, ServerRecord, SessionRecord, SessionStatus
+from app.db import Database
+from app.models import ServerRecord, SessionRecord, SessionStatus
+
+log = logging.getLogger(__name__)
+
+
+def _row_to_session(row) -> SessionRecord:
+    d = dict(row)
+    if isinstance(d.get("metadata"), str):
+        d["metadata"] = json.loads(d["metadata"] or "{}")
+    return SessionRecord.model_validate(d)
+
+
+def _row_to_server(row) -> ServerRecord:
+    d = dict(row)
+    if isinstance(d.get("metadata"), str):
+        d["metadata"] = json.loads(d["metadata"] or "{}")
+    return ServerRecord.model_validate(d)
 
 
 class SessionRegistry:
-    def __init__(self, path: Path):
-        self.path = path
-
-    @contextmanager
-    def _lock(self):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path = self.path.with_suffix(".lock")
-        with open(lock_path, "w") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-
-    def load(self) -> RegistryState:
-        if not self.path.exists():
-            return RegistryState()
-
-        try:
-            return RegistryState.model_validate_json(self.path.read_text())
-        except Exception:
-            return RegistryState()
-
-    def save(self, state: RegistryState) -> RegistryState:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(state.model_dump(mode="json"), indent=2))
-        return state
+    def __init__(self, db: Database):
+        self.db = db
 
     def upsert_server(self, record: ServerRecord) -> ServerRecord:
-        with self._lock():
-            state = self.load()
-            for index, existing in enumerate(state.servers):
-                if existing.server_key == record.server_key:
-                    state.servers[index] = record
-                    self.save(state)
-                    return record
-            state.servers.append(record)
-            self.save(state)
-            return record
+        d = record.model_dump(mode="json")
+        self.db.conn.execute(
+            """INSERT INTO servers
+               (server_key, workspot, runtime, container, pid, status, capacity,
+                started_at, last_seen_at, log_file, metadata)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(server_key) DO UPDATE SET
+               workspot=excluded.workspot, runtime=excluded.runtime,
+               container=excluded.container, pid=excluded.pid,
+               status=excluded.status, capacity=excluded.capacity,
+               started_at=excluded.started_at, last_seen_at=excluded.last_seen_at,
+               log_file=excluded.log_file, metadata=excluded.metadata""",
+            (d["server_key"], d.get("workspot"), d.get("runtime"), d.get("container"),
+             d.get("pid"), d.get("status"), d.get("capacity", 32),
+             d.get("started_at"), d.get("last_seen_at"), d.get("log_file"),
+             json.dumps(d.get("metadata") or {})),
+        )
+        self.db.conn.commit()
+        return record
 
     def upsert_session(self, record: SessionRecord) -> SessionRecord:
-        with self._lock():
-            state = self.load()
-            for index, existing in enumerate(state.sessions):
-                if existing.id == record.id:
-                    state.sessions[index] = record
-                    self.save(state)
-                    return record
-            state.sessions.append(record)
-            self.save(state)
-            return record
+        d = record.model_dump(mode="json")
+        self.db.conn.execute(
+            """INSERT INTO sessions
+               (id, workspot, server_key, label, runtime, container, repo_root,
+                working_dir, branch, worktree_path, url, status, created_at,
+                last_seen_at, source, server_session_name, output_file, metadata)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(id) DO UPDATE SET
+               workspot=excluded.workspot, server_key=excluded.server_key,
+               label=excluded.label, runtime=excluded.runtime,
+               container=excluded.container, repo_root=excluded.repo_root,
+               working_dir=excluded.working_dir, branch=excluded.branch,
+               worktree_path=excluded.worktree_path, url=excluded.url,
+               status=excluded.status, last_seen_at=excluded.last_seen_at,
+               source=excluded.source,
+               server_session_name=excluded.server_session_name,
+               output_file=excluded.output_file, metadata=excluded.metadata""",
+            (
+                d["id"], d.get("workspot"), d.get("server_key"), d.get("label"),
+                d.get("runtime"), d.get("container"), d.get("repo_root"),
+                d.get("working_dir"), d.get("branch"), d.get("worktree_path"),
+                d.get("url"), d.get("status", "stopped"),
+                d.get("created_at"), d.get("last_seen_at"), d.get("source"),
+                d.get("server_session_name"), d.get("output_file"),
+                json.dumps(d.get("metadata") or {}),
+            ),
+        )
+        self.db.conn.commit()
+        return record
 
     def delete_session(self, session_id: str) -> bool:
-        with self._lock():
-            state = self.load()
-            original_count = len(state.sessions)
-            state.sessions = [session for session in state.sessions if session.id != session_id]
-            if len(state.sessions) == original_count:
-                return False
-            self.save(state)
-            return True
+        cur = self.db.conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+        self.db.conn.commit()
+        return cur.rowcount > 0
 
     def delete_ended_sessions(self) -> int:
-        with self._lock():
-            state = self.load()
-            original = len(state.sessions)
-            state.sessions = [s for s in state.sessions if s.status not in {SessionStatus.stopped, SessionStatus.failed}]
-            removed = original - len(state.sessions)
-            if removed:
-                self.save(state)
-            return removed
+        cur = self.db.conn.execute(
+            "DELETE FROM sessions WHERE status IN ('stopped', 'failed')"
+        )
+        self.db.conn.commit()
+        return cur.rowcount
 
     def get_session(self, session_id: str) -> SessionRecord | None:
-        return next((item for item in self.load().sessions if item.id == session_id), None)
+        row = self.db.conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        ).fetchone()
+        return _row_to_session(row) if row else None
 
     def find_session(
         self,
@@ -94,17 +107,28 @@ class SessionRegistry:
         label: str | None = None,
         statuses: set[SessionStatus] | None = None,
     ) -> SessionRecord | None:
-        candidates = self.load().sessions
         if session_id:
-            return next((item for item in candidates if item.id == session_id), None)
+            return self.get_session(session_id)
+
+        conditions: list[str] = []
+        params: list = []
         if workspot:
-            candidates = [item for item in candidates if item.workspot == workspot]
+            conditions.append("workspot = ?")
+            params.append(workspot)
         if label:
-            candidates = [item for item in candidates if item.label == label]
+            conditions.append("label = ?")
+            params.append(label)
         if statuses:
-            candidates = [item for item in candidates if item.status in statuses]
-        candidates = sorted(candidates, key=lambda item: item.created_at, reverse=True)
-        return candidates[0] if candidates else None
+            placeholders = ",".join("?" * len(statuses))
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(s.value for s in statuses)
+
+        where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+        rows = self.db.conn.execute(
+            f"SELECT * FROM sessions {where} ORDER BY created_at DESC LIMIT 1",
+            params,
+        ).fetchall()
+        return _row_to_session(rows[0]) if rows else None
 
     def mark_session(
         self,
@@ -116,62 +140,83 @@ class SessionRegistry:
         metadata: dict | None = None,
         source: str | None = None,
     ) -> SessionRecord | None:
-        with self._lock():
-            state = self.load()
-            now = datetime.now(timezone.utc)
-            for index, session in enumerate(state.sessions):
-                if session.id != session_id:
-                    continue
-                updated = session.model_copy(
-                    update={
-                        "status": status or session.status,
-                        "url": url if url is not None else session.url,
-                        "branch": branch if branch is not None else session.branch,
-                        "last_seen_at": now,
-                        "source": source or session.source,
-                        "metadata": {**session.metadata, **(metadata or {})},
-                    }
-                )
-                state.sessions[index] = updated
-                self.save(state)
-                return updated
+        session = self.get_session(session_id)
+        if not session:
             return None
 
+        now = datetime.now(timezone.utc).isoformat()
+        new_meta = json.dumps({**session.metadata, **(metadata or {})})
+
+        self.db.conn.execute(
+            """UPDATE sessions SET
+               status = COALESCE(?, status),
+               url = CASE WHEN ? IS NOT NULL THEN ? ELSE url END,
+               branch = CASE WHEN ? IS NOT NULL THEN ? ELSE branch END,
+               last_seen_at = ?,
+               source = COALESCE(?, source),
+               metadata = ?
+               WHERE id = ?""",
+            (
+                status.value if status else None,
+                url, url,
+                branch, branch,
+                now,
+                source,
+                new_meta,
+                session_id,
+            ),
+        )
+        self.db.conn.commit()
+        return self.get_session(session_id)
+
     def list_sessions(self, *, workspot: Optional[str] = None) -> list[SessionRecord]:
-        state = self.load()
-        sessions = state.sessions
         if workspot:
-            sessions = [session for session in sessions if session.workspot == workspot]
-        return sorted(sessions, key=lambda item: item.created_at, reverse=True)
+            rows = self.db.conn.execute(
+                "SELECT * FROM sessions WHERE workspot = ? ORDER BY created_at DESC",
+                (workspot,),
+            ).fetchall()
+        else:
+            rows = self.db.conn.execute(
+                "SELECT * FROM sessions ORDER BY created_at DESC"
+            ).fetchall()
+        return [_row_to_session(r) for r in rows]
 
     def list_servers(self) -> list[ServerRecord]:
-        return sorted(self.load().servers, key=lambda item: item.server_key)
+        rows = self.db.conn.execute(
+            "SELECT * FROM servers ORDER BY server_key"
+        ).fetchall()
+        return [_row_to_server(r) for r in rows]
 
 
 class SessionHistoryStore:
-    def __init__(self, path: Path, max_sessions: int = 10):
-        self.path = path
+    def __init__(self, db: Database, max_sessions: int = 10):
+        self.db = db
         self.max_sessions = max_sessions
 
     def load(self) -> list[dict]:
-        if self.path.exists():
-            try:
-                data = json.loads(self.path.read_text())
-                if isinstance(data, list):
-                    return data
-            except Exception:
-                return []
-        return []
+        rows = self.db.conn.execute(
+            "SELECT url, workspot, label, worktree, started_at "
+            "FROM session_history ORDER BY started_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
 
-    def save_session(self, url: str, workspot: str, worktree: str | None = None, label: str | None = None):
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        sessions = self.load()
-        sessions.insert(0, {
-            "url": url,
-            "started_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "workspot": workspot,
-            "worktree": worktree,
-            "label": label,
-        })
-        sessions = sessions[: self.max_sessions]
-        self.path.write_text(json.dumps(sessions, indent=2))
+    def save_session(
+        self,
+        url: str,
+        workspot: str,
+        worktree: str | None = None,
+        label: str | None = None,
+    ) -> None:
+        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        self.db.conn.execute(
+            "INSERT INTO session_history (url, workspot, label, worktree, started_at) "
+            "VALUES (?,?,?,?,?)",
+            (url, workspot, label, worktree, now),
+        )
+        self.db.conn.execute(
+            """DELETE FROM session_history WHERE id NOT IN (
+               SELECT id FROM session_history ORDER BY started_at DESC LIMIT ?
+            )""",
+            (self.max_sessions,),
+        )
+        self.db.conn.commit()

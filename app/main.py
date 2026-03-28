@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import load_config
+from app.db import Database
 from app.discovery import discover_all
 from app.hook_ingest import ingest_session_hook
 from app.models import AddWorkspotRequest, KillRequest, SessionHookPayload, StartRequest, Workspot, WorkspotSource
@@ -22,9 +23,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 config = load_config()
-registry = SessionRegistry(config.session_registry_file)
-history_store = SessionHistoryStore(config.session_history_file, max_sessions=config.max_sessions)
-workspot_store = WorkspotStore(config.workspot_config_file)
+db = Database(config.db_file)
+db.migrate_from_json(
+    registry_json=config.session_registry_file,
+    history_json=config.session_history_file,
+    workspots_json=config.workspot_config_file,
+)
+registry = SessionRegistry(db)
+history_store = SessionHistoryStore(db, max_sessions=config.max_sessions)
+workspot_store = WorkspotStore(db)
 runtime_manager = RuntimeManager(local_env=config.local_claude_env)
 server_manager = ServerManager(registry=registry, runtime_manager=runtime_manager)
 session_manager = SessionManager(

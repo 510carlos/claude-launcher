@@ -21,6 +21,7 @@ class AppConfig:
     claude_rc_flags: str
     ts_key_expires: str
     url_capture_timeout: int
+    db_file: Path
     session_registry_file: Path
     session_history_file: Path
     workspot_config_file: Path
@@ -88,6 +89,7 @@ def load_config() -> AppConfig:
         claude_rc_flags=os.getenv("CLAUDE_RC_FLAGS", ""),
         ts_key_expires=os.getenv("TS_KEY_EXPIRES", ""),
         url_capture_timeout=int(os.getenv("URL_CAPTURE_TIMEOUT", "30")),
+        db_file=Path(os.getenv("DB_FILE", "/data/launcher.db")),
         session_registry_file=Path(os.getenv("SESSION_REGISTRY_FILE", "/data/session-registry.json")),
         session_history_file=Path(os.getenv("SESSION_HISTORY_FILE", "/data/sessions.json")),
         workspot_config_file=Path(os.getenv("WORKSPOT_CONFIG_FILE", "/data/workspots.json")),
