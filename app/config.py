@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AppConfig:
+    app_name: str
     claude_global_flags: str
     claude_rc_flags: str
     ts_key_expires: str
@@ -85,6 +86,7 @@ def load_config() -> AppConfig:
     scan_dirs = [d.strip() for d in scan_dirs_raw.split(",") if d.strip()]
 
     return AppConfig(
+        app_name=os.getenv("APP_NAME", "Claude Launcher"),
         claude_global_flags=os.getenv("CLAUDE_GLOBAL_FLAGS", ""),
         claude_rc_flags=os.getenv("CLAUDE_RC_FLAGS", ""),
         ts_key_expires=os.getenv("TS_KEY_EXPIRES", ""),

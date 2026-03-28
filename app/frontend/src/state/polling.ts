@@ -1,7 +1,8 @@
 import { listWorkspaces, getHealth } from '../api/workspaces';
 import { listSessions } from '../api/sessions';
 import { runDiscovery } from '../api/discovery';
-import { workspaces, sessions, health, activeSessions, clearPhaseTimer, pendingPhases, discoveryResult, scanning } from './signals';
+import { api } from '../api/client';
+import { workspaces, sessions, health, activeSessions, clearPhaseTimer, pendingPhases, discoveryResult, scanning, appName } from './signals';
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let lastHash = '';
@@ -60,6 +61,9 @@ async function backgroundScan() {
 }
 
 export function startPolling() {
+  // Fetch app name once
+  api<{ app_name: string }>('/api/config').then(c => { appName.value = c.app_name; }).catch(() => {});
+
   const poll = async () => {
     try { await refresh(); } catch (e) { console.error('Poll failed:', e); }
     const fast = activeSessions.value.some(s => s.status === 'pending');

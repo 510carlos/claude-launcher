@@ -1,4 +1,4 @@
-import { workspaces, activeCount, route, newDiscoveryCount } from '../state/signals';
+import { workspaces, activeCount, route, newDiscoveryCount, appName } from '../state/signals';
 
 function navTo(target: '/' | '/discover' | '/updates') {
   route.value = target;
@@ -11,7 +11,7 @@ export function TopBar() {
   return (
     <nav class="topbar">
       <div onClick={() => navTo('/')} style={{ cursor: 'pointer' }}>
-        <div class="brand-title">Claude Launcher</div>
+        <div class="brand-title">{appName.value}</div>
         <div class="brand-sub">
           {workspaces.value.length} workspaces &middot; {activeCount.value} active
         </div>

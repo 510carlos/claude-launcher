@@ -96,6 +96,11 @@ def _resolve_static(filename: str) -> Path:
     return STATIC_DIR / filename
 
 
+@app.get("/api/config")
+async def get_config():
+    return JSONResponse({"app_name": config.app_name})
+
+
 @app.get("/")
 @app.get("/sessions")
 async def index():

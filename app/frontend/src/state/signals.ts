@@ -1,6 +1,9 @@
 import { signal, computed } from '@preact/signals';
 import type { Workspace, Session, HealthStatus, DiscoveryResult } from '../types';
 
+// App config
+export const appName = signal('Claude Launcher');
+
 // Core data
 export const workspaces = signal<Workspace[]>([]);
 export const sessions = signal<Session[]>([]);
