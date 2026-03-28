@@ -205,13 +205,13 @@ class DevcontainerRuntimeAdapter:
     async def is_running(self, workspace_folder: str) -> bool:
         """Check if a devcontainer is already running for this workspace."""
         proc = await asyncio.create_subprocess_exec(
-            self.devcontainer_bin, "up", "--workspace-folder", workspace_folder,
-            "--expect-existing-container",
+            "docker", "ps", "-q",
+            "--filter", f"label=devcontainer.local_folder={workspace_folder}",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        await proc.communicate()
-        return proc.returncode == 0
+        stdout, _ = await proc.communicate()
+        return proc.returncode == 0 and bool(stdout.decode().strip())
 
 
 def _shell_quote(s: str) -> str:
