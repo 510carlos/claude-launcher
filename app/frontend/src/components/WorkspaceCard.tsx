@@ -15,10 +15,17 @@ export function WorkspaceCard({ workspace: ws }: Props) {
   const h = healthOf(ws.name);
   const ok = isHealthy(ws);
   const errs = wsErrors(ws);
-  const activeCount = sessions.value.filter(
+  const activeSessions = sessions.value.filter(
     s => s.workspot === ws.name && (s.status === 'running' || s.status === 'pending')
-  ).length;
+  );
+  const activeCount = activeSessions.length;
+  const runningSessions = activeSessions.filter(s => s.status === 'running' && s.url);
+  const activeSession = runningSessions[0] ?? null;
   const formOpen = ok && optionsWorkspace.value === ws.name;
+
+  function openExisting() {
+    if (activeSession?.url) window.open(activeSession.url, '_blank');
+  }
 
   async function quickLaunch() {
     if (!ok) { showNotice('Workspace needs attention.', 'error'); return; }
@@ -109,7 +116,13 @@ export function WorkspaceCard({ workspace: ws }: Props) {
       )}
 
       <div class="actions">
-        <button class="btn btn-primary btn-sm" onClick={quickLaunch} disabled={!ok}>Launch</button>
+        {activeSession
+          ? <button class="btn btn-primary btn-sm" onClick={openExisting}>Open</button>
+          : <button class="btn btn-primary btn-sm" onClick={quickLaunch} disabled={!ok}>Launch</button>
+        }
+        {activeSession && (
+          <button class="btn btn-ghost btn-sm" onClick={quickLaunch} disabled={!ok}>New Session</button>
+        )}
         <button class="btn btn-ghost btn-sm" onClick={toggleOptions} disabled={!ok}>Options</button>
         {!ok && (
           <>
