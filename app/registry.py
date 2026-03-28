@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from app.db import Database
@@ -89,6 +89,15 @@ class SessionRegistry:
     def delete_ended_sessions(self) -> int:
         cur = self.db.conn.execute(
             "DELETE FROM sessions WHERE status IN ('stopped', 'failed')"
+        )
+        self.db.conn.commit()
+        return cur.rowcount
+
+    def delete_stale_sessions(self, max_age_hours: int = 24) -> int:
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).isoformat()
+        cur = self.db.conn.execute(
+            "DELETE FROM sessions WHERE status IN ('stopped', 'failed') AND created_at < ?",
+            (cutoff,),
         )
         self.db.conn.commit()
         return cur.rowcount

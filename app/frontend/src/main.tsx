@@ -7,7 +7,7 @@ import './app.css';
 // Hash routing
 function syncRoute() {
   const h = (window.location.hash || '#/').replace(/^#/, '');
-  route.value = h === '/discover' ? '/discover' : '/';
+  route.value = h === '/discover' ? '/discover' : h === '/updates' ? '/updates' : '/';
 }
 window.addEventListener('hashchange', syncRoute);
 syncRoute();

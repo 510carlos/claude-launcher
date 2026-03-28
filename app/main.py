@@ -76,6 +76,9 @@ async def _reconcile_loop():
             updated = await session_manager.reconcile_sessions()
             if updated:
                 log.info("Reconciler updated %d sessions", updated)
+            purged = registry.delete_stale_sessions()
+            if purged:
+                log.info("Purged %d stale sessions older than 24h", purged)
         except Exception as e:
             log.error("Reconciler error: %s", e)
         await asyncio.sleep(12)
@@ -319,6 +322,71 @@ async def add_workspot(req: AddWorkspotRequest):
     )
     workspot_store.add(workspot)
     return JSONResponse({"status": "ok", "workspot": workspot.model_dump(mode="json")})
+
+
+@app.get("/api/updates/check")
+async def check_updates():
+    """Check if the app is behind origin/main."""
+    import subprocess
+    repo = APP_DIR.parent
+    try:
+        subprocess.run(["git", "-C", str(repo), "fetch", "origin", "main", "--quiet"], timeout=15, capture_output=True)
+        result = subprocess.run(
+            ["git", "-C", str(repo), "log", "HEAD..origin/main", "--oneline"],
+            capture_output=True, text=True, timeout=10,
+        )
+        commits = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
+        current = subprocess.run(
+            ["git", "-C", str(repo), "log", "-1", "--format=%h %s"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return JSONResponse({
+            "status": "ok",
+            "behind": len(commits),
+            "commits": commits[:20],
+            "current": current.stdout.strip(),
+        })
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)})
+
+
+@app.post("/api/updates/apply")
+async def apply_update():
+    """Pull latest from origin/main, rebuild frontend, restart service."""
+    import subprocess
+    repo = APP_DIR.parent
+    steps: list[dict] = []
+    try:
+        # Pull
+        r = subprocess.run(
+            ["git", "-C", str(repo), "pull", "origin", "main", "--ff-only"],
+            capture_output=True, text=True, timeout=30,
+        )
+        steps.append({"step": "git pull", "ok": r.returncode == 0, "output": r.stdout.strip() or r.stderr.strip()})
+        if r.returncode != 0:
+            return JSONResponse({"status": "error", "message": "Git pull failed", "steps": steps})
+
+        # Rebuild frontend
+        frontend_dir = APP_DIR / "frontend"
+        r = subprocess.run(
+            ["bun", "run", "build"],
+            cwd=str(frontend_dir), capture_output=True, text=True, timeout=60,
+        )
+        steps.append({"step": "bun run build", "ok": r.returncode == 0, "output": r.stdout.strip() or r.stderr.strip()})
+        if r.returncode != 0:
+            return JSONResponse({"status": "error", "message": "Frontend build failed", "steps": steps})
+
+        # Schedule restart after response is sent
+        async def _restart():
+            await asyncio.sleep(1)
+            subprocess.run(["systemctl", "--user", "restart", "claude-launcher"], timeout=10)
+
+        asyncio.create_task(_restart())
+        steps.append({"step": "restart", "ok": True, "output": "Scheduled"})
+        return JSONResponse({"status": "ok", "steps": steps, "message": "Update applied. Restarting..."})
+
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e), "steps": steps})
 
 
 @app.delete("/api/workspots/{name}")

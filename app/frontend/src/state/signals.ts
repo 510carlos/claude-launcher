@@ -26,7 +26,7 @@ export const endedSessions = computed(() =>
 export const activeCount = computed(() => activeSessions.value.length);
 
 // UI state
-export const route = signal<'/' | '/discover'>('/');
+export const route = signal<'/' | '/discover' | '/updates'>('/');
 export const notices = signal<{ id: number; msg: string; kind: 'info' | 'error' }[]>([]);
 export const discoveryResult = signal<DiscoveryResult | null>(null);
 export const scanning = signal(false);
