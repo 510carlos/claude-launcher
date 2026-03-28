@@ -1,4 +1,4 @@
-const CACHE = 'claude-launcher-v3';
+const CACHE = 'claude-launcher-v4';
 const SHELL = ['/', '/static/manifest.json'];
 const API_PATHS = ['/api/', '/start', '/start-worktree', '/kill', '/status', '/sessions', '/workspots'];
 
