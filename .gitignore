@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+data/
 
 # Frontend build artifacts
 app/frontend/node_modules/

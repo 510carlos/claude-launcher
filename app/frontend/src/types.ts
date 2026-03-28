@@ -59,6 +59,10 @@ export interface DiscoveredEnvironment {
   already_configured: boolean;
   image: string | null;
   container_status: string | null;
+  last_commit_days_ago: number | null;
+  has_claude_setup: boolean;
+  activity_label: string | null;
+  score: number;
 }
 
 export interface DiscoveryResult {

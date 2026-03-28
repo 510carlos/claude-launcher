@@ -138,6 +138,10 @@ class DiscoveredEnvironment(BaseModel):
     already_configured: bool = False
     image: Optional[str] = None
     container_status: Optional[str] = None
+    last_commit_days_ago: Optional[int] = None
+    has_claude_setup: bool = False
+    activity_label: Optional[str] = None
+    score: int = 0
 
 
 class AddWorkspotRequest(BaseModel):
