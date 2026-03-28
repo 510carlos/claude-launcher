@@ -146,6 +146,15 @@ class ServerManager:
 
         server = await self.reconcile_server(workspot)
 
+        # Detect current git branch
+        branch = None
+        if adapter_health["git_ok"]:
+            branch_result = await runtime.run_shell(
+                workspot, f"git -C {workspot.dir} symbolic-ref --short HEAD 2>/dev/null"
+            )
+            if branch_result.returncode == 0 and branch_result.stdout.strip():
+                branch = branch_result.stdout.strip()
+
         return {
             "workspot": workspot.name, "runtime": workspot.runtime.value,
             "container": workspot.container, "dir": workspot.dir, "claude_bin": workspot.claude_bin,
@@ -155,6 +164,7 @@ class ServerManager:
             "git_ok": adapter_health["git_ok"],
             "runtime_error": adapter_health.get("runtime_error", ""),
             "auth_ok": auth_ok,
+            "branch": branch,
             "server_status": server.status.value,
             "server_capacity": workspot.server_capacity,
             "issues": issues,

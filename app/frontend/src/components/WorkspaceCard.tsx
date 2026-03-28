@@ -102,6 +102,7 @@ export function WorkspaceCard({ workspace: ws }: Props) {
         <div>
           <div class="card-title">{ws.name}</div>
           <div class="card-meta">
+            {h?.branch && <span>{h.branch} &middot; </span>}
             {ws.container || 'Host'}{activeCount ? ` \u00b7 ${activeCount} active` : ''}
           </div>
         </div>

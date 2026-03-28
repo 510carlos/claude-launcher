@@ -22,6 +22,7 @@ export interface HealthStatus {
   git_ok: boolean;
   claude_bin_ok: boolean;
   auth_ok: boolean;
+  branch: string | null;
   server_status: ServerStatus;
   issues: string[];
 }

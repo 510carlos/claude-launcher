@@ -154,7 +154,18 @@ class SessionManager:
             return {"status": "error", "message": "Pre-flight failed: " + "; ".join(issues)}
 
         working_dir = req.directory or workspot.dir
-        label = self.derive_label(workspot, label=req.label, branch=req.branch, directory=working_dir)
+
+        # Auto-detect git branch if not explicitly provided
+        branch = req.branch
+        if not branch:
+            runtime = self._runtime(workspot)
+            br_result = await runtime.run_shell(
+                workspot, f"git -C {working_dir} symbolic-ref --short HEAD 2>/dev/null"
+            )
+            if br_result.returncode == 0 and br_result.stdout.strip():
+                branch = br_result.stdout.strip()
+
+        label = self.derive_label(workspot, label=req.label, branch=branch, directory=working_dir)
         if req.worktree and not req.label:
             # Make worktree sessions clearly distinguishable
             repo = PurePosixPath(workspot.dir).name
@@ -167,7 +178,7 @@ class SessionManager:
             workspot=workspot,
             label=label,
             working_dir=working_dir,
-            branch=req.branch,
+            branch=branch,
         )
         self.registry.upsert_session(record)
 
