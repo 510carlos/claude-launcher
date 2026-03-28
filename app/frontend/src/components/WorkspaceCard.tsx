@@ -21,6 +21,7 @@ export function WorkspaceCard({ workspace: ws }: Props) {
   const activeCount = activeSessions.length;
   const runningSessions = activeSessions.filter(s => s.status === 'running' && s.url);
   const activeSession = runningSessions[0] ?? null;
+  const hasPending = activeSessions.some(s => s.status === 'pending');
   const formOpen = ok && optionsWorkspace.value === ws.name;
 
   function openExisting() {
@@ -118,7 +119,9 @@ export function WorkspaceCard({ workspace: ws }: Props) {
       <div class="actions">
         {activeSession
           ? <button class="btn btn-primary btn-sm" onClick={openExisting}>Open</button>
-          : <button class="btn btn-primary btn-sm" onClick={quickLaunch} disabled={!ok}>Launch</button>
+          : <button class="btn btn-primary btn-sm" onClick={quickLaunch} disabled={!ok || hasPending}>
+              {hasPending ? 'Starting\u2026' : 'Launch'}
+            </button>
         }
         {activeSession && (
           <button class="btn btn-ghost btn-sm" onClick={quickLaunch} disabled={!ok}>New Session</button>
