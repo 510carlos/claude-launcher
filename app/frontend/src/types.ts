@@ -23,6 +23,9 @@ export interface HealthStatus {
   claude_bin_ok: boolean;
   auth_ok: boolean;
   branch: string | null;
+  has_devcontainer: boolean;
+  devcontainer_status: string | null;
+  devcontainer_workspace: string | null;
   server_status: ServerStatus;
   issues: string[];
 }
@@ -76,6 +79,7 @@ export interface DiscoveryResult {
 export interface StartSessionRequest {
   workspot: string;
   worktree?: boolean;
+  devcontainer?: boolean;
   label?: string;
   branch?: string;
   directory?: string | null;

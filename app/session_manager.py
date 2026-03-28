@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import secrets
 import time
 from datetime import datetime, timezone
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 import logging
 
@@ -36,6 +37,21 @@ class SessionManager:
         self.runtime_manager = runtime_manager
         self.server_manager = server_manager
         self._workspot_resolver = workspot_resolver
+
+    @staticmethod
+    def _resolve_devcontainer_workspace(host_dir: str) -> str | None:
+        """Read workspaceFolder from devcontainer.json."""
+        dc_config = Path(host_dir) / ".devcontainer" / "devcontainer.json"
+        if not dc_config.exists():
+            return None
+        try:
+            raw = dc_config.read_text()
+            cleaned = re.sub(r'//.*$', '', raw, flags=re.MULTILINE)
+            cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+            data = json.loads(cleaned)
+            return data.get("workspaceFolder")
+        except Exception:
+            return None
 
     def resolve_workspot(self, name: str) -> Workspot | None:
         if self._workspot_resolver:
@@ -148,19 +164,39 @@ class SessionManager:
         if not workspot:
             return {"status": "error", "message": f"Unknown workspot '{req.workspot}'"}
 
-        # Pre-flight checks
-        issues = await self.server_manager.check_preflight(workspot)
-        if issues:
-            return {"status": "error", "message": "Pre-flight failed: " + "; ".join(issues)}
+        # For devcontainer launches, create a temporary workspot override
+        effective_workspot = workspot
+        if req.devcontainer:
+            # Start devcontainer if not running
+            dc_adapter = self.runtime_manager.devcontainer
+            if not await dc_adapter.is_running(workspot.dir):
+                log.info("Starting devcontainer for %s...", workspot.name)
+                up_result = await dc_adapter.up(workspot.dir)
+                if up_result.returncode != 0:
+                    return {"status": "error", "message": f"Failed to start devcontainer: {up_result.stderr.strip()[:200]}"}
 
-        working_dir = req.directory or workspot.dir
+            # Resolve workspace folder inside container
+            from app.models import RuntimeType
+            dc_workspace = self._resolve_devcontainer_workspace(workspot.dir)
+            effective_workspot = workspot.model_copy(update={
+                "runtime": RuntimeType.devcontainer,
+                "dir": dc_workspace or workspot.dir,
+            })
+
+        # Pre-flight checks (skip for devcontainer — we just verified it's up)
+        if not req.devcontainer:
+            issues = await self.server_manager.check_preflight(workspot)
+            if issues:
+                return {"status": "error", "message": "Pre-flight failed: " + "; ".join(issues)}
+
+        working_dir = req.directory or effective_workspot.dir
 
         # Auto-detect git branch if not explicitly provided
         branch = req.branch
         if not branch:
-            runtime = self._runtime(workspot)
+            runtime = self._runtime(effective_workspot)
             br_result = await runtime.run_shell(
-                workspot, f"git -C {working_dir} symbolic-ref --short HEAD 2>/dev/null"
+                effective_workspot, f"git -C {working_dir} symbolic-ref --short HEAD 2>/dev/null"
             )
             if br_result.returncode == 0 and br_result.stdout.strip():
                 branch = br_result.stdout.strip()
@@ -175,14 +211,14 @@ class SessionManager:
         session_id = secrets.token_urlsafe(8)
         record = self.build_session_record(
             session_id=session_id,
-            workspot=workspot,
+            workspot=effective_workspot,
             label=label,
             working_dir=working_dir,
             branch=branch,
         )
         self.registry.upsert_session(record)
 
-        ok, err = await self.launch_session(workspot, record, spawn_worktree=req.worktree)
+        ok, err = await self.launch_session(effective_workspot, record, spawn_worktree=req.worktree)
         if not ok:
             self.registry.mark_session(session_id, status=SessionStatus.failed, metadata={"error": err})
             return {"status": "error", "message": err}

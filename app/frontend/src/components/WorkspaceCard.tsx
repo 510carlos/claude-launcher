@@ -39,7 +39,7 @@ export function WorkspaceCard({ workspace: ws }: Props) {
     optionsWorkspace.value = optionsWorkspace.value === ws.name ? null : ws.name;
   }
 
-  async function doStart(label: string, branch: string | null, worktree: boolean) {
+  async function doStart(label: string, branch: string | null, worktree: boolean, devcontainer = false) {
     const tempId = 'pending-' + Date.now();
     sessions.value = [{
       id: tempId, workspot: ws.name, label, branch, status: 'pending' as const,
@@ -52,10 +52,11 @@ export function WorkspaceCard({ workspace: ws }: Props) {
     startPhaseTimer(tempId);
     optionsWorkspace.value = null;
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showNotice(`Starting ${worktree ? 'worktree ' : ''}session in ${ws.name}...`);
+    const mode = devcontainer ? 'container ' : worktree ? 'worktree ' : '';
+    showNotice(`Starting ${mode}session in ${ws.name}...`);
 
     try {
-      const r = await startSession({ workspot: ws.name, worktree, label, branch: branch ?? undefined });
+      const r = await startSession({ workspot: ws.name, worktree, devcontainer, label, branch: branch ?? undefined });
       sessions.value = sessions.value.filter(s => s.id !== tempId);
       if (r.status !== 'ok') {
         showNotice(r.message || 'Failed to start session.', 'error');
@@ -67,6 +68,12 @@ export function WorkspaceCard({ workspace: ws }: Props) {
       sessions.value = sessions.value.filter(s => s.id !== tempId);
       showNotice('Connection failed.', 'error');
     }
+  }
+
+  async function launchInContainer() {
+    if (!ok) { showNotice('Workspace needs attention.', 'error'); return; }
+    const label = randomLabel();
+    await doStart(label, null, false, true);
   }
 
   async function handleFix() {
@@ -126,6 +133,11 @@ export function WorkspaceCard({ workspace: ws }: Props) {
         }
         {activeSession && (
           <button class="btn btn-ghost btn-sm" onClick={quickLaunch} disabled={!ok}>New Session</button>
+        )}
+        {h?.has_devcontainer && (
+          <button class="btn btn-ghost btn-sm" onClick={launchInContainer} disabled={!ok || hasPending}>
+            {h.devcontainer_status === 'running' ? 'Container' : 'Start Container'}
+          </button>
         )}
         <button class="btn btn-ghost btn-sm" onClick={toggleOptions} disabled={!ok}>Options</button>
         {!ok && (

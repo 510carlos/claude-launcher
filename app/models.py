@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, field_validator
 class RuntimeType(str, Enum):
     docker = "docker"
     host = "host"
+    devcontainer = "devcontainer"
 
 
 class WorkspotSource(str, Enum):
@@ -106,6 +107,7 @@ class RegistryState(BaseModel):
 class StartRequest(BaseModel):
     workspot: str
     worktree: bool = False
+    devcontainer: bool = False
     label: Optional[str] = None
     branch: Optional[str] = None
     directory: Optional[str] = None

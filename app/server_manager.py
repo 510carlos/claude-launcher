@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import re
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.models import ServerRecord, ServerStatus, Workspot
 from app.registry import SessionRegistry
@@ -155,6 +158,29 @@ class ServerManager:
             if branch_result.returncode == 0 and branch_result.stdout.strip():
                 branch = branch_result.stdout.strip()
 
+        # Detect devcontainer availability
+        has_devcontainer = False
+        devcontainer_status = None
+        devcontainer_workspace = None
+        dc_config = Path(workspot.dir) / ".devcontainer" / "devcontainer.json"
+        if dc_config.exists():
+            has_devcontainer = True
+            try:
+                # Parse JSON with comment stripping (devcontainer.json allows // comments)
+                raw = dc_config.read_text()
+                cleaned = re.sub(r'//.*$', '', raw, flags=re.MULTILINE)
+                cleaned = re.sub(r'/\*.*?\*/', '', cleaned, flags=re.DOTALL)
+                dc_data = json.loads(cleaned)
+                devcontainer_workspace = dc_data.get("workspaceFolder")
+            except Exception:
+                pass
+            # Check if the devcontainer is running
+            try:
+                is_running = await self.runtime_manager.devcontainer.is_running(workspot.dir)
+                devcontainer_status = "running" if is_running else "stopped"
+            except FileNotFoundError:
+                devcontainer_status = "no-cli"
+
         return {
             "workspot": workspot.name, "runtime": workspot.runtime.value,
             "container": workspot.container, "dir": workspot.dir, "claude_bin": workspot.claude_bin,
@@ -165,6 +191,9 @@ class ServerManager:
             "runtime_error": adapter_health.get("runtime_error", ""),
             "auth_ok": auth_ok,
             "branch": branch,
+            "has_devcontainer": has_devcontainer,
+            "devcontainer_status": devcontainer_status,
+            "devcontainer_workspace": devcontainer_workspace,
             "server_status": server.status.value,
             "server_capacity": workspot.server_capacity,
             "issues": issues,
