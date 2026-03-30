@@ -202,18 +202,31 @@ async def recheck_workspot(name: str):
 
 @app.post("/api/workspots/{name}/fix")
 async def fix_workspot(name: str):
-    """Auto-fix common issues: trust workspace via claude -p."""
+    """Auto-fix common issues: restart stopped containers, trust workspace."""
     ws = find_workspot(name)
     if not ws:
         return JSONResponse({"status": "error", "message": f"Unknown workspot '{name}'"}, status_code=404)
 
-    runtime = runtime_manager.for_workspot(ws)
     fixes_applied: list[str] = []
 
-    # Fix trust: run 'claude -p' which skips the interactive trust dialog
-    result = await runtime.run_shell(ws, f"cd {ws.dir} && {ws.claude_bin} -p 'ok' 2>&1", cwd=ws.dir)
-    if result.returncode == 0:
-        fixes_applied.append("Workspace trusted")
+    # Fix: restart stopped Docker container
+    if ws.container:
+        import asyncio as _aio
+        proc = await _aio.create_subprocess_exec(
+            "docker", "start", ws.container,
+            stdout=_aio.subprocess.PIPE, stderr=_aio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode == 0:
+            fixes_applied.append(f"Started container {ws.container}")
+            # Give it a moment to fully start
+            await _aio.sleep(3)
+
+    runtime = runtime_manager.for_workspot(ws)
+
+    # Fix: auto-trust workspace directory
+    await session_manager.ensure_workspace_trusted(ws, ws.dir)
+    fixes_applied.append("Workspace trusted")
 
     # Re-run health after fixes
     health = await server_manager.workspot_health(ws)
