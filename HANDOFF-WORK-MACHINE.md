@@ -1,6 +1,8 @@
-# Claude Launcher — Work Machine Installation Handoff
+# Claude Launcher — New Machine Installation Handoff
 
-This document is for an AI agent setting up Claude Launcher on the **work machine**. The home machine instance is already running and serves as the reference. The repo is at `https://github.com/510carlos/claude-launcher.git` on the `main` branch.
+This document is for an AI agent setting up Claude Launcher on a **new machine** (Raspberry Pi, WSL, or any Linux host). The repo is at `https://github.com/510carlos/claude-launcher.git` on the `main` branch.
+
+**Prerequisites:** The machine should already have `python3`, `node` (via nvm), the `claude` CLI, and Tailscale installed and configured.
 
 ---
 
@@ -20,17 +22,21 @@ git clone https://github.com/510carlos/claude-launcher.git
 cd claude-launcher
 ```
 
-### 2. Install Python dependencies
+### 2. Install uv (Python package runner)
+
+[uv](https://docs.astral.sh/uv/) handles dependencies automatically — no venv to create or manage.
 
 ```bash
-pip install fastapi uvicorn python-dotenv pydantic
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.zshrc  # or: export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### 3. Install frontend dependencies and build
+### 3. Install bun (if not present) and build frontend
 
 ```bash
-# Requires bun (https://bun.sh) — install if not present:
-# curl -fsSL https://bun.sh/install | bash
+# Install bun if not already installed:
+curl -fsSL https://bun.sh/install | bash
+source ~/.zshrc  # or: export PATH="$HOME/.bun/bin:$PATH"
 
 cd app/frontend
 bun install
@@ -44,7 +50,11 @@ cd ../..
 npm install -g @devcontainers/cli
 ```
 
-### 5. Create the `.env` file
+### 5. Create the data directory and `.env` file
+
+```bash
+mkdir -p data
+```
 
 Create `/home/<user>/claude-launcher/.env` with these contents. **Adjust paths for the actual user and machine:**
 
@@ -84,8 +94,8 @@ After=network.target
 Type=simple
 WorkingDirectory=/home/<user>/claude-launcher
 EnvironmentFile=-/home/<user>/claude-launcher/.env
-Environment=PATH=/home/<user>/.nvm/versions/node/<node-version>/bin:/home/<user>/.local/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8765
+Environment=PATH=/home/<user>/.nvm/versions/node/<node-version>/bin:/home/<user>/.local/bin:/home/<user>/.bun/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/<user>/.local/bin/uv run --with fastapi --with uvicorn --with python-dotenv --with pydantic python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
 Restart=always
 RestartSec=3
 
@@ -95,7 +105,8 @@ WantedBy=default.target
 
 **Important:** The PATH must include:
 - The directory containing `claude` CLI (usually `~/.local/bin`)
-- The directory containing `node`/`bun`/`devcontainer` (usually under `~/.nvm/versions/node/<version>/bin`)
+- The directory containing `node` (usually under `~/.nvm/versions/node/<version>/bin`)
+- The directory containing `bun` (usually `~/.bun/bin`)
 
 Find the correct paths with:
 ```bash
