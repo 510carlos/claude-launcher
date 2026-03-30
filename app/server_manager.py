@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,6 +9,8 @@ from pathlib import Path
 from app.models import ServerRecord, ServerStatus, Workspot
 from app.registry import SessionRegistry
 from app.runtime import RuntimeManager
+
+_HOME = os.path.expanduser("~")
 
 
 class ServerManager:
@@ -66,8 +69,8 @@ class ServerManager:
         if not adapter_health["repo_exists"]:
             issues.append(f"Directory not found: {workspot.dir}")
 
-        # 3. Git
-        if not adapter_health["git_ok"]:
+        # 3. Git (skip for home directory — it's not a repo, it's a root launch point)
+        if not adapter_health["git_ok"] and workspot.dir != _HOME:
             issues.append("Git not available or not a git repo")
 
         # 4. Claude CLI
@@ -135,7 +138,7 @@ class ServerManager:
 
         if not adapter_health["repo_exists"]:
             issues.append(f"Directory not found: {workspot.dir}")
-        if not adapter_health["git_ok"]:
+        if not adapter_health["git_ok"] and workspot.dir != _HOME:
             issues.append("Git not available")
 
         # Only check auth if CLI exists

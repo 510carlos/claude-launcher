@@ -293,8 +293,12 @@ a { color: inherit; text-decoration: none; }
 .panel-title { font-size: 1rem; font-weight: 800; }
 .panel-sub { color: var(--muted); font-size: 0.8rem; }
 
+/* ---- Narrow content (updates, settings) ---- */
+.content-narrow { max-width: 600px; }
+
 /* ---- Grid ---- */
 .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.grid-discovery { display: grid; grid-template-columns: 1fr; gap: 10px; }
 
 /* ---- Session card states ---- */
 .card.pending { border-color: rgba(245, 158, 11, 0.25); }
@@ -358,11 +362,13 @@ a { color: inherit; text-decoration: none; }
 /* ---- Responsive ---- */
 @media (min-width: 520px) {
   .form-grid { grid-template-columns: 1fr 1fr; }
+  .grid-discovery { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 720px) {
-  .app { padding: 16px 16px 40px; }
+  .app { padding: 16px 24px 40px; }
   .grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 1000px) {
+  .app { padding: 20px 32px 48px; }
   .grid { grid-template-columns: repeat(3, 1fr); }
 }

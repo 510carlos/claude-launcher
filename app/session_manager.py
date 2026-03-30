@@ -93,8 +93,32 @@ class SessionManager:
                     return match.group(0), last_output
         return None, last_output
 
+    async def ensure_workspace_trusted(self, workspot: Workspot, directory: str) -> None:
+        """Ensure the workspace directory is trusted in ~/.claude.json so remote-control doesn't prompt."""
+        runtime = self._runtime(workspot)
+        # Use python3 to atomically read-modify-write ~/.claude.json
+        script = (
+            "import json, os, pathlib; "
+            "p = pathlib.Path(os.path.expanduser('~/.claude.json')); "
+            "data = json.loads(p.read_text()) if p.exists() else {}; "
+            "projects = data.setdefault('projects', {}); "
+            f"proj = projects.setdefault({directory!r}, {{}}); "
+            "changed = not proj.get('hasTrustDialogAccepted'); "
+            "proj['hasTrustDialogAccepted'] = True; "
+            "p.write_text(json.dumps(data, indent=2)) if changed else None; "
+            "print('trusted' if changed else 'already trusted')"
+        )
+        result = await runtime.run_shell(workspot, f'python3 -c "{script}"')
+        if result.returncode == 0:
+            log.info("Workspace trust for %s: %s", directory, result.stdout.strip())
+        else:
+            log.warning("Failed to set workspace trust for %s: %s", directory, result.stderr.strip())
+
     async def launch_session(self, workspot: Workspot, session: SessionRecord, *, spawn_worktree: bool = False) -> tuple[bool, str]:
         runtime = self._runtime(workspot)
+
+        # Auto-trust the workspace directory so remote-control doesn't prompt
+        await self.ensure_workspace_trusted(workspot, session.working_dir or workspot.dir)
 
         # For worktree sessions, checkout main first so worktrees branch off main
         if spawn_worktree:

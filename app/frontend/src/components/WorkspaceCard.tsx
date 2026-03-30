@@ -106,7 +106,7 @@ export function WorkspaceCard({ workspace: ws }: Props) {
   return (
     <article class="card">
       <div class="card-head">
-        <div>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div class="card-title">{ws.name}</div>
           <div class="card-meta">
             {h?.branch && <span>{h.branch} &middot; </span>}
@@ -124,7 +124,7 @@ export function WorkspaceCard({ workspace: ws }: Props) {
         </div>
       )}
 
-      <div class="actions" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>
+      <div class="actions">
         {activeSession
           ? <button class="btn btn-primary btn-sm" onClick={openExisting}>{'\u{1F517}'} Open</button>
           : <button class="btn btn-primary btn-sm" onClick={quickLaunch} disabled={!ok || hasPending}>

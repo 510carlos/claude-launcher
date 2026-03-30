@@ -206,6 +206,8 @@ App
 
 ## Development Setup
 
+The app runs natively (not in Docker). Docker deployment is deprecated because running inside Docker limits the launcher to managing other Docker containers — it cannot reach host-level workspaces or local directories.
+
 ```bash
 # Backend
 pip install fastapi uvicorn python-dotenv
@@ -219,7 +221,7 @@ bun run build      # produces app/frontend/dist/ — served by FastAPI
 bun run dev        # Vite dev server on :5173, proxies API to :8765
 ```
 
-**Data directory:** The default paths (`/data/*.json`) are for Docker deployments. For native installs, set:
+**Data directory:** Set local paths in `.env`:
 ```
 SESSION_REGISTRY_FILE=./data/session-registry.json
 SESSION_HISTORY_FILE=./data/sessions.json

@@ -89,6 +89,22 @@ async def start_reconciler():
     asyncio.create_task(_reconcile_loop())
 
 
+@app.on_event("startup")
+async def ensure_home_workspot():
+    """Ensure ~/ exists as a workspot and is trusted, so there's always a root environment to launch from."""
+    import os
+    home = os.path.expanduser("~")
+    home_ws = Workspot(name="home", dir=home, runtime="host")
+    # Add to workspot store if not already present
+    try:
+        workspot_store.add(home_ws)
+        log.info("Added default 'home' workspot at %s", home)
+    except ValueError:
+        pass  # already exists
+    # Trust it
+    await session_manager.ensure_workspace_trusted(home_ws, home)
+
+
 def _resolve_static(filename: str) -> Path:
     """Resolve a static file from build dir or legacy static dir."""
     if _use_build and (BUILD_DIR / filename).exists():

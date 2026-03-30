@@ -58,7 +58,7 @@ export function DiscoveryPage() {
             <div><div class="panel-title">Compatible</div><div class="panel-sub">Ready to use.</div></div>
             <span class="pill pill-green pill-plain">{result.compatible.length}</span>
           </div>
-          <div class="grid">
+          <div class="grid-discovery">
             {result.compatible.map(e => <DiscoveryCard key={e.name} env={e} />)}
           </div>
         </div>
@@ -70,7 +70,7 @@ export function DiscoveryPage() {
             <div><div class="panel-title">Needs Setup</div><div class="panel-sub">Missing requirements.</div></div>
             <span class="pill pill-yellow pill-plain">{result.partial.length}</span>
           </div>
-          <div class="grid">
+          <div class="grid-discovery">
             {result.partial.map(e => <DiscoveryCard key={e.name} env={e} />)}
           </div>
         </div>
@@ -82,7 +82,7 @@ export function DiscoveryPage() {
             <div><div class="panel-title">Not Ready</div><div class="panel-sub">Missing most requirements.</div></div>
             <span class="pill pill-plain">{result.incompatible.length}</span>
           </div>
-          <div class="grid">
+          <div class="grid-discovery">
             {result.incompatible.map(e => <DiscoveryCard key={e.name} env={e} />)}
           </div>
         </div>

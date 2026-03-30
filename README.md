@@ -51,8 +51,6 @@ This means you get all of Claude's features — tool use, artifacts, conversatio
 
 ## Quick Start
 
-### Option A: Native (WSL / Linux / macOS)
-
 ```bash
 git clone https://github.com/510carlos/claude-launcher.git
 cd claude-launcher
@@ -84,11 +82,13 @@ loginctl enable-linger $USER
 
 Manage with: `systemctl --user status|stop|restart claude-launcher`
 
-### Option B: Docker Compose
+### Docker Compose (deprecated)
+
+> **Note:** Docker deployment is deprecated. Running the launcher inside Docker limits it to managing other Docker containers — it cannot reach host-level workspaces or local directories. Native deployment gives you full access to both Docker containers and host environments.
+
+A `docker-compose.yml` is still provided for backwards compatibility:
 
 ```bash
-git clone https://github.com/510carlos/claude-launcher.git
-cd claude-launcher
 cp .env.example .env   # edit with your workspots
 docker compose up -d --build
 ```
@@ -486,10 +486,9 @@ docker ps --format 'table {{.Names}}\t{{.Status}}'
 ### Stopping
 
 ```bash
-# Native
 pkill -f "uvicorn app.main"
 
-# Docker
+# If using Docker (deprecated)
 docker compose down          # Stop services
 docker compose down -v       # Stop and remove volumes (clears all state)
 ```

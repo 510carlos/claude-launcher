@@ -43,7 +43,7 @@ export function UpdatesPage() {
   useEffect(() => { handleCheck(); }, []);
 
   return (
-    <>
+    <div class="content-narrow">
       <div class="section-head" style={{ marginBottom: '4px' }}>
         <span class="section-title">Updates</span>
         <div style={{ display: 'flex', gap: '6px' }}>
@@ -123,6 +123,6 @@ export function UpdatesPage() {
           {'\u{1F5D1}'} Clear Cache
         </button>
       </div>
-    </>
+    </div>
   );
 }
