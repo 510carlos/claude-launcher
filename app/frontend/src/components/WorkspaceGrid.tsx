@@ -26,6 +26,9 @@ export function WorkspaceGrid() {
   }
 
   const sorted = [...ws].sort((a, b) => {
+    // Pin "home" to the end
+    if (a.name === 'home') return 1;
+    if (b.name === 'home') return -1;
     const d = (isHealthy(a) ? 0 : 1) - (isHealthy(b) ? 0 : 1);
     return d || a.name.localeCompare(b.name);
   });
