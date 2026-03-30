@@ -31,7 +31,8 @@ export function UpdatesPage() {
         setResult('Update applied! App is restarting\u2026');
         setTimeout(() => window.location.reload(), 4000);
       } else {
-        setResult(r.message || 'Update failed.');
+        const detail = r.steps?.filter(s => !s.ok).map(s => s.output).join('\n') || '';
+        setResult((r.message || 'Update failed.') + (detail ? `\n${detail}` : ''));
       }
     } catch {
       setResult('Update failed.');
@@ -58,7 +59,7 @@ export function UpdatesPage() {
       </div>
 
       {result && (
-        <div class="notice info" style={{ display: 'block' }}>{result}</div>
+        <div class="notice info" style={{ display: 'block', whiteSpace: 'pre-wrap' }}>{result}</div>
       )}
 
       {check && (

@@ -415,14 +415,18 @@ async def apply_update():
     repo = APP_DIR.parent
     steps: list[dict] = []
     try:
-        # Pull
-        r = subprocess.run(
-            ["git", "-C", str(repo), "pull", "origin", "main", "--ff-only"],
-            capture_output=True, text=True, timeout=30,
+        # Reset to origin/main (handles dirty working tree and diverged history)
+        subprocess.run(
+            ["git", "-C", str(repo), "fetch", "origin", "main", "--quiet"],
+            capture_output=True, text=True, timeout=15,
         )
-        steps.append({"step": "git pull", "ok": r.returncode == 0, "output": r.stdout.strip() or r.stderr.strip()})
+        r = subprocess.run(
+            ["git", "-C", str(repo), "reset", "--hard", "origin/main"],
+            capture_output=True, text=True, timeout=15,
+        )
+        steps.append({"step": "git reset", "ok": r.returncode == 0, "output": r.stdout.strip() or r.stderr.strip()})
         if r.returncode != 0:
-            return JSONResponse({"status": "error", "message": "Git pull failed", "steps": steps})
+            return JSONResponse({"status": "error", "message": f"Git reset failed: {r.stderr.strip()}", "steps": steps})
 
         # Rebuild frontend
         frontend_dir = APP_DIR / "frontend"
