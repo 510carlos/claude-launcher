@@ -190,7 +190,7 @@ class ServerManager:
             "runtime_ok": adapter_health["runtime_ok"],
             "repo_exists": adapter_health["repo_exists"],
             "claude_bin_ok": adapter_health["claude_bin_ok"],
-            "git_ok": adapter_health["git_ok"],
+            "git_ok": True if workspot.dir == _HOME else adapter_health["git_ok"],
             "runtime_error": adapter_health.get("runtime_error", ""),
             "auth_ok": auth_ok,
             "branch": branch,

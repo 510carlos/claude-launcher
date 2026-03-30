@@ -163,6 +163,13 @@ async def icon_512():
 @app.get("/api/workspots")
 @app.get("/workspots")
 async def list_workspots():
+    import os
+    home = os.path.expanduser("~")
+    all_ws = get_all_workspots()
+    # Ensure home is always last
+    non_home = [w for w in all_ws if w.dir != home]
+    home_ws = [w for w in all_ws if w.dir == home]
+    ordered = non_home + home_ws
     return JSONResponse([
         {
             "name": w.name,
@@ -171,9 +178,9 @@ async def list_workspots():
             "dir": w.dir,
             "claude_bin": w.claude_bin,
             "server_capacity": w.server_capacity,
-            "source": w.source.value,
+            "source": "env" if w.dir == home else w.source.value,
         }
-        for w in get_all_workspots()
+        for w in ordered
     ])
 
 
