@@ -61,7 +61,7 @@ cp .env.example .env   # edit with your workspots, or leave empty and use Discov
 Start the server:
 
 ```bash
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8765
+python -m uvicorn app.main:app --host 0.0.0.0 --port 6767
 ```
 
 **Auto-start on boot (recommended):**
@@ -95,8 +95,8 @@ docker compose up -d --build
 
 The dashboard is now available at:
 
-- **Local**: http://localhost:8765
-- **Tailscale**: http://\<tailscale-ip\>:8765
+- **Local**: http://localhost:6767
+- **Tailscale**: http://\<tailscale-ip\>:6767
 
 Open it on your phone, tap **Launch** on a workspace, and you'll get a URL that opens directly in the Claude app.
 
@@ -145,7 +145,7 @@ Or skip manual config entirely — set `WORKSPOTS=[]` and use the **Discover** f
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WORKSPOTS` | `[]` | JSON array of workspot definitions (see above) |
-| `PORT` | `8765` | Dashboard port |
+| `PORT` | `6767` | Dashboard port |
 | `URL_CAPTURE_TIMEOUT` | `30` | Seconds to wait for `claude remote-control` to output a URL |
 | `CLAUDE_GLOBAL_FLAGS` | `""` | Flags passed before the subcommand |
 | `CLAUDE_RC_FLAGS` | `""` | Flags passed to `remote-control` (e.g. `--permission-mode bypassPermissions`) |
@@ -164,15 +164,34 @@ Or skip manual config entirely — set `WORKSPOTS=[]` and use the **Discover** f
 | `TAILSCALE_HOSTNAME` | `csl` | Hostname shown in your Tailscale admin panel |
 | `TS_KEY_EXPIRES` | — | Auth key expiry date (ISO format, used for expiry warnings) |
 
-## Tailscale Setup
+## Remote Access
 
-Tailscale provides secure remote access so you can reach the launcher from your phone or any device on your tailnet.
+The whole point of Claude Launcher is reaching your dev machine from your phone. You need some way to connect — a VPN, tunnel, or mesh network. The launcher listens on port `6767` and serves a web UI, so anything that lets your phone reach that port will work.
 
-1. Go to [Tailscale Admin → Settings → Keys](https://login.tailscale.com/admin/settings/keys)
-2. Generate a **reusable** auth key tagged `tag:claude-launcher`
-3. Set `TAILSCALE_AUTHKEY` and `TS_KEY_EXPIRES` in `.env`
+### Recommended: Tailscale
 
-For native setups, just run `tailscale login` on the machine.
+[Tailscale](https://tailscale.com) is what this project is built around. It creates a private mesh network across your devices using WireGuard under the hood. Free tier covers up to 100 devices.
+
+1. Install Tailscale on your dev machine and your phone
+2. Run `tailscale login` on the dev machine
+3. Open `http://<tailscale-ip>:6767` on your phone — that's it
+
+For auto-start setups, you can set `TAILSCALE_AUTHKEY` in `.env` (generate at [Tailscale Admin → Keys](https://login.tailscale.com/admin/settings/keys)).
+
+### Alternatives
+
+Any of these will work — you just need your phone to reach port 6767 on your dev machine:
+
+| Service | How it works | Free tier | Notes |
+|---------|-------------|-----------|-------|
+| [Tailscale](https://tailscale.com) | Mesh VPN (WireGuard) | 100 devices | Easiest setup, recommended |
+| [ZeroTier](https://www.zerotier.com) | Mesh VPN (custom protocol) | 25 devices | Similar to Tailscale, self-hostable |
+| [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) | Reverse tunnel, no open ports | Unlimited | Exposes via public URL — add Cloudflare Access for auth |
+| [Headscale](https://github.com/juanfont/headscale) | Self-hosted Tailscale-compatible server | Unlimited (self-hosted) | For full control, no third-party dependency |
+| [WireGuard](https://www.wireguard.com) | VPN protocol (manual setup) | Free (self-hosted) | Most setup work, but no third party involved |
+| [ngrok](https://ngrok.com) | Reverse tunnel | 1 agent | Quick for testing, not ideal for always-on use |
+
+If you're not sure, start with Tailscale. It takes about 2 minutes to set up and just works.
 
 ## Usage
 
@@ -274,7 +293,7 @@ All endpoints return JSON.
 ### Starting a Session via API
 
 ```bash
-curl -X POST http://localhost:8765/api/sessions \
+curl -X POST http://localhost:6767/api/sessions \
   -H "Content-Type: application/json" \
   -d '{"workspot": "my-project", "label": "auth-refactor", "worktree": true}'
 ```
