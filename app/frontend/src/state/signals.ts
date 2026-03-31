@@ -40,6 +40,8 @@ export const newDiscoveryCount = computed(() => {
 });
 export const recentOpen = signal(false);
 export const optionsWorkspace = signal<string | null>(null);
+export const resumeWorkspace = signal<string | null>(null);
+export const menuWorkspace = signal<string | null>(null);
 
 // Progress phase tracking for pending sessions
 export const pendingPhases = signal<Record<string, { phase: number; startedAt: number }>>({});

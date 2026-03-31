@@ -12,7 +12,7 @@ from app.config import load_config
 from app.db import Database
 from app.discovery import discover_all
 from app.hook_ingest import ingest_session_hook
-from app.models import AddWorkspotRequest, KillRequest, SessionHookPayload, StartRequest, Workspot, WorkspotSource
+from app.models import AddWorkspotRequest, KillRequest, ResumeRequest, SessionHookPayload, StartRequest, Workspot, WorkspotSource
 from app.registry import SessionHistoryStore, SessionRegistry
 from app.runtime import RuntimeManager
 from app.server_manager import ServerManager
@@ -312,6 +312,24 @@ async def get_status():
             "url": next((s.url for s in live if s.url), None),
         })
     return JSONResponse(results)
+
+
+@app.get("/api/workspots/{name}/conversations")
+async def list_conversations(name: str, limit: int = 20):
+    ws = find_workspot(name)
+    if not ws:
+        return JSONResponse(
+            {"status": "error", "message": f"Unknown workspot '{name}'"},
+            status_code=404,
+        )
+    from app.conversation_scanner import list_conversations as scan
+    conversations = scan(ws.dir, limit=limit)
+    return JSONResponse([c.model_dump(mode="json") for c in conversations])
+
+
+@app.post("/api/sessions/resume")
+async def resume_session_endpoint(req: ResumeRequest):
+    return JSONResponse(await session_manager.resume_session(req))
 
 
 @app.post("/api/sessions")

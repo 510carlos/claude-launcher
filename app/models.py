@@ -146,6 +146,21 @@ class DiscoveredEnvironment(BaseModel):
     score: int = 0
 
 
+class ConversationInfo(BaseModel):
+    """A Claude CLI conversation that can be resumed."""
+    session_id: str
+    first_message: str
+    last_modified: datetime
+    file_size: int
+
+
+class ResumeRequest(BaseModel):
+    """Request to resume a previous conversation via remote-control."""
+    workspot: str
+    conversation_id: str
+    label: Optional[str] = None
+
+
 class AddWorkspotRequest(BaseModel):
     name: str
     runtime: RuntimeType = RuntimeType.host

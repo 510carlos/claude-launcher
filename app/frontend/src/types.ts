@@ -85,6 +85,19 @@ export interface StartSessionRequest {
   directory?: string | null;
 }
 
+export interface Conversation {
+  session_id: string;
+  first_message: string;
+  last_modified: string;
+  file_size: number;
+}
+
+export interface ResumeSessionRequest {
+  workspot: string;
+  conversation_id: string;
+  label?: string;
+}
+
 export interface ApiResponse {
   status: 'ok' | 'error';
   message?: string;

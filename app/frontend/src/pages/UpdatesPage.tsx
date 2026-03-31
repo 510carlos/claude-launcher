@@ -47,15 +47,9 @@ export function UpdatesPage() {
     <div class="content-narrow">
       <div class="section-head" style={{ marginBottom: '4px' }}>
         <span class="section-title">Updates</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button class="btn btn-ghost btn-sm" onClick={handleCheck} disabled={checking}>
-            {checking ? 'Checking\u2026' : 'Check'}
-          </button>
-          <button class="btn btn-ghost btn-sm" onClick={() => {
-            route.value = '/';
-            window.location.hash = '#/';
-          }}>Back</button>
-        </div>
+        <button class="btn btn-ghost btn-sm" onClick={handleCheck} disabled={checking}>
+          {checking ? 'Checking\u2026' : 'Check'}
+        </button>
       </div>
 
       {result && (

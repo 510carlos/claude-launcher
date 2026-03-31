@@ -1,5 +1,5 @@
-import { workspaces, isHealthy, route } from '../state/signals';
-import { WorkspaceCard } from './WorkspaceCard';
+import { workspaces, sessions, isHealthy, route } from '../state/signals';
+import { UnifiedCard } from './UnifiedCard';
 
 export function WorkspaceGrid() {
   const ws = workspaces.value;
@@ -29,6 +29,11 @@ export function WorkspaceGrid() {
     // Pin "home" to the end
     if (a.name === 'home') return 1;
     if (b.name === 'home') return -1;
+    // Active sessions float to top
+    const aActive = sessions.value.some(s => s.workspot === a.name && (s.status === 'running' || s.status === 'pending'));
+    const bActive = sessions.value.some(s => s.workspot === b.name && (s.status === 'running' || s.status === 'pending'));
+    if (aActive !== bActive) return aActive ? -1 : 1;
+    // Healthy before unhealthy
     const d = (isHealthy(a) ? 0 : 1) - (isHealthy(b) ? 0 : 1);
     return d || a.name.localeCompare(b.name);
   });
@@ -40,7 +45,7 @@ export function WorkspaceGrid() {
       </div>
       <div class="grid">
         {sorted.map(ws => (
-          <WorkspaceCard key={ws.name} workspace={ws} />
+          <UnifiedCard key={ws.name} workspace={ws} />
         ))}
       </div>
     </div>

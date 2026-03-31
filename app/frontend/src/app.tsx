@@ -1,5 +1,6 @@
 import { route } from './state/signals';
-import { TopBar } from './components/TopBar';
+import { HeroTile } from './components/HeroTile';
+import { BottomNav } from './components/BottomNav';
 import { NoticeToast } from './components/NoticeToast';
 import { DashboardPage } from './pages/DashboardPage';
 import { DiscoveryPage } from './pages/DiscoveryPage';
@@ -16,11 +17,14 @@ function CurrentPage() {
 export function App() {
   return (
     <div class="app">
-      <TopBar />
+      <div class="orb orb-top-right" />
+      <div class="orb orb-bottom-left" />
+      <HeroTile />
       <NoticeToast />
       <section class="page active" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <CurrentPage />
       </section>
+      <BottomNav />
     </div>
   );
 }

@@ -30,15 +30,9 @@ export function DiscoveryPage() {
     <>
       <div class="section-head" style={{ marginBottom: '4px' }}>
         <span class="section-title">Discover Environments</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button class="btn btn-primary btn-sm" onClick={handleScan} disabled={isScanning}>
-            {isScanning ? 'Scanning...' : 'Rescan'}
-          </button>
-          <button class="btn btn-ghost btn-sm" onClick={() => {
-            route.value = '/';
-            window.location.hash = '#/';
-          }}>Back</button>
-        </div>
+        <button class="btn btn-primary btn-sm" onClick={handleScan} disabled={isScanning}>
+          {isScanning ? 'Scanning...' : 'Rescan'}
+        </button>
       </div>
       <div style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: '10px' }}>
         Scans Docker containers and local repos. Add compatible ones to your workspaces.
