@@ -30,6 +30,14 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js', { type: 'module' }).catch(() => {});
 }
 
+// Haptic feedback on button taps (mobile)
+document.addEventListener('click', (e) => {
+  const target = e.target as HTMLElement;
+  if (target.closest('button, a.open-btn, .nav-item, .card-menu-item, .conversation-row')) {
+    navigator.vibrate?.(10);
+  }
+}, { passive: true });
+
 // Boot: load cached data first for instant render, then poll
 loadFromCache();
 render(<App />, document.getElementById('app')!);

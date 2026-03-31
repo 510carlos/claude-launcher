@@ -17,8 +17,7 @@ function CurrentPage() {
 export function App() {
   return (
     <div class="app">
-      <div class="orb orb-top-right" />
-      <div class="orb orb-bottom-left" />
+      <div class="aurora-bg" />
       <HeroTile />
       <NoticeToast />
       <section class="page active" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
