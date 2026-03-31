@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "claude-launcher"
+version = "0.1.0"
+description = "Start Claude Code sessions on your dev machines from your phone. One tap. Any workspace."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Carlos Mendoza", email = "510carlos@users.noreply.github.com" },
+]
+keywords = ["claude", "claude-code", "remote-control", "developer-tools", "mobile"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/510carlos/claude-launcher"
+Repository = "https://github.com/510carlos/claude-launcher"
+Issues = "https://github.com/510carlos/claude-launcher/issues"
+
+[project.scripts]
+claude-launcher = "app.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"app/frontend/dist" = "app/frontend/dist"
+"app/static" = "app/static"
