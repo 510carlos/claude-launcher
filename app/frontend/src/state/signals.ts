@@ -43,6 +43,9 @@ export const optionsWorkspace = signal<string | null>(null);
 export const resumeWorkspace = signal<string | null>(null);
 export const menuWorkspace = signal<string | null>(null);
 
+// PWA install prompt
+export const installPrompt = signal<Event | null>(null);
+
 // Progress phase tracking for pending sessions
 export const pendingPhases = signal<Record<string, { phase: number; startedAt: number }>>({});
 

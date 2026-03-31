@@ -1,12 +1,18 @@
 {
+  "id": "/",
   "name": "Claude Launcher",
   "short_name": "Claude",
-  "description": "Start Claude Code sessions in your devcontainer",
+  "description": "Start Claude Code sessions in your dev environment from anywhere",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0b1220",
-  "theme_color": "#0b1220",
+  "background_color": "#0b111a",
+  "theme_color": "#0b111a",
   "orientation": "portrait",
+  "categories": ["developer-tools", "utilities"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "/icon-192.png",
@@ -31,6 +37,20 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "url": "/#/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Discover Workspaces",
+      "short_name": "Discover",
+      "url": "/#/discover",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

@@ -1,8 +1,25 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [
+    preact(),
+    VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectRegister: false, // we register manually in main.tsx
+      manifest: false, // we use our own manifest.json in public/
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2}'],
+      },
+    }),
+  ],
   root: '.',
   server: {
     port: 3000,
