@@ -70,17 +70,16 @@ class SessionManager:
     def derive_label(self, workspot: Workspot, *, label: str | None = None, branch: str | None = None, directory: str | None = None) -> str:
         if label:
             return label
+        # Build a descriptive name for the Claude app: "Machine · branch [· Docker]"
+        machine = self.config.app_name or "Host"
+        parts = [machine]
         if branch:
-            repo = PurePosixPath(workspot.dir).name
-            return f"{repo}/{branch}"
-        if directory:
-            name = PurePosixPath(directory).name
-            if name:
-                return name
-        # Use repo name + short timestamp for unique, readable names
-        repo = PurePosixPath(workspot.dir).name
-        ts = datetime.now(timezone.utc).strftime("%H%M")
-        return f"{repo}-{ts}-{secrets.token_hex(1)}"
+            parts.append(branch)
+        if workspot.runtime.value == "docker":
+            parts.append("Docker")
+        elif workspot.runtime.value == "devcontainer":
+            parts.append("Dev")
+        return " · ".join(parts)
 
     async def poll_for_url(self, workspot: Workspot, output_file: str) -> tuple[str | None, str]:
         runtime = self._runtime(workspot)

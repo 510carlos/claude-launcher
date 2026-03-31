@@ -63,13 +63,13 @@ export function UnifiedCard({ workspace: ws }: Props) {
 
   async function quickLaunch() {
     if (!ok) { showNotice('Workspace needs attention.', 'error'); return; }
-    await doStart(randomLabel(), null, false);
+    await doStart(null, null, false);
   }
 
-  async function doStart(label: string, branch: string | null, worktree: boolean, devcontainer = false) {
+  async function doStart(label: string | null, branch: string | null, worktree: boolean, devcontainer = false) {
     const tempId = 'pending-' + Date.now();
     sessions.value = [{
-      id: tempId, workspot: ws.name, label, branch, status: 'pending' as const,
+      id: tempId, workspot: ws.name, label: label || ws.name, branch, status: 'pending' as const,
       url: null, created_at: new Date().toISOString(),
       server_key: '', runtime: ws.runtime, container: ws.container,
       repo_root: ws.dir, working_dir: ws.dir, worktree_path: null,
@@ -135,7 +135,7 @@ export function UnifiedCard({ workspace: ws }: Props) {
 
   async function launchInContainer() {
     menuWorkspace.value = null;
-    await doStart(randomLabel(), null, false, true);
+    await doStart(null, null, false, true);
   }
 
   async function handleFix() {
