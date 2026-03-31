@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import secrets
 import time
@@ -10,8 +11,9 @@ from pathlib import Path, PurePosixPath
 
 import logging
 
-from app.models import SessionRecord, SessionStatus, StartRequest, Workspot
+from app.models import ResumeRequest, SessionRecord, SessionStatus, StartRequest, Workspot
 from app.registry import SessionHistoryStore, SessionRegistry
+from app.resume import PtySession, blocking_pty_resume, cleanup_pty
 from app.runtime import RuntimeManager
 from app.server_manager import ServerManager
 
@@ -37,6 +39,7 @@ class SessionManager:
         self.runtime_manager = runtime_manager
         self.server_manager = server_manager
         self._workspot_resolver = workspot_resolver
+        self._pty_sessions: dict[str, PtySession] = {}  # session_id -> PtySession for resumed sessions
 
     @staticmethod
     def _resolve_devcontainer_workspace(host_dir: str) -> str | None:
@@ -114,11 +117,60 @@ class SessionManager:
         else:
             log.warning("Failed to set workspace trust for %s: %s", directory, result.stderr.strip())
 
+    async def ensure_auto_approve(self, workspot: Workspot, directory: str) -> None:
+        """Ensure .claude/settings.json in the workspace has a PermissionRequest hook to auto-approve tools."""
+        import base64
+
+        runtime = self._runtime(workspot)
+        settings_path = f"{directory}/.claude/settings.json"
+
+        # Read existing settings from the workspace
+        result = await runtime.run_shell(workspot, f"cat {settings_path} 2>/dev/null")
+        try:
+            data = json.loads(result.stdout) if result.returncode == 0 and result.stdout.strip() else {}
+        except json.JSONDecodeError:
+            data = {}
+
+        hooks = data.setdefault("hooks", {})
+        pr = hooks.get("PermissionRequest", [])
+
+        # Check if auto-approve hook already exists
+        has_auto = any(
+            "allow" in h.get("hooks", [{}])[0].get("command", "")
+            for h in pr if h.get("hooks")
+        )
+        if has_auto:
+            log.info("Auto-approve for %s: already set", directory)
+            return
+
+        # Build the hook — echo produces the JSON that Claude Code expects
+        payload = json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {"behavior": "allow"},
+            }
+        })
+        pr.append({"matcher": "", "hooks": [{"type": "command", "command": f"echo '{payload}'"}]})
+        hooks["PermissionRequest"] = pr
+
+        # Write back via base64 to avoid shell quoting issues
+        settings_json = json.dumps(data, indent=2)
+        b64 = base64.b64encode(settings_json.encode()).decode()
+        await runtime.run_shell(workspot, f"mkdir -p {directory}/.claude")
+        result = await runtime.run_shell(workspot, f"echo {b64} | base64 -d > {settings_path}")
+        if result.returncode == 0:
+            log.info("Auto-approve for %s: added", directory)
+        else:
+            log.warning("Failed to set auto-approve for %s: %s", directory, result.stderr.strip())
+
     async def launch_session(self, workspot: Workspot, session: SessionRecord, *, spawn_worktree: bool = False) -> tuple[bool, str]:
         runtime = self._runtime(workspot)
 
         # Auto-trust the workspace directory so remote-control doesn't prompt
         await self.ensure_workspace_trusted(workspot, session.working_dir or workspot.dir)
+
+        # Auto-approve tool permissions so phone doesn't prompt
+        await self.ensure_auto_approve(workspot, session.working_dir or workspot.dir)
 
         # For worktree sessions, checkout main first so worktrees branch off main
         if spawn_worktree:
@@ -272,6 +324,72 @@ class SessionManager:
         self.history_store.save_session(url, workspot=workspot.name, label=label)
         return {"status": "ok", "session": updated.model_dump(mode="json"), "url": url, "reused": False, "workspot": workspot.name}
 
+    async def resume_session(self, req: ResumeRequest) -> dict:
+        """Resume a previous Claude conversation via PTY + /remote-control."""
+        workspot = self.resolve_workspot(req.workspot)
+        if not workspot:
+            return {"status": "error", "message": f"Unknown workspot '{req.workspot}'"}
+        if workspot.runtime.value != "host":
+            return {"status": "error", "message": "Resume is only supported for host workspots"}
+
+        issues = await self.server_manager.check_preflight(workspot)
+        if issues:
+            return {"status": "error", "message": "Pre-flight failed: " + "; ".join(issues)}
+
+        await self.ensure_workspace_trusted(workspot, workspot.dir)
+
+        label = req.label or f"resume-{req.conversation_id[:8]}"
+        session_id = secrets.token_urlsafe(8)
+        record = self.build_session_record(
+            session_id=session_id,
+            workspot=workspot,
+            label=label,
+            working_dir=workspot.dir,
+            source="resume",
+        )
+        self.registry.upsert_session(record)
+
+        # Build environment for the child process
+        import os as _os
+        env = {**_os.environ, **workspot.env, "CLAUDE_LAUNCHER_SESSION_ID": session_id}
+
+        loop = asyncio.get_event_loop()
+        pty_session, url, output = await loop.run_in_executor(
+            None,
+            blocking_pty_resume,
+            workspot.claude_bin,
+            req.conversation_id,
+            workspot.dir,
+            env,
+            float(self.config.url_capture_timeout),
+        )
+
+        if not url or not pty_session:
+            is_error = any(p in output.lower() for p in ERROR_PATTERNS)
+            new_status = SessionStatus.failed if is_error else SessionStatus.pending
+            error_msg = output.strip().split("\n")[-1] if is_error and output.strip() else None
+            self.registry.mark_session(session_id, status=new_status, metadata={"last_output": output, "error": error_msg})
+            if is_error:
+                return {"status": "error", "message": f"Resume failed: {error_msg}", "session_id": session_id}
+            return {
+                "status": "ok",
+                "session": self.registry.get_session(session_id).model_dump(mode="json"),
+                "pending_url": True,
+                "message": "Resume started but URL not yet captured.",
+            }
+
+        # Store PTY info for lifecycle management (kill)
+        self._pty_sessions[session_id] = pty_session
+
+        updated = self.registry.mark_session(
+            session_id,
+            status=SessionStatus.running,
+            url=url,
+            metadata={"last_output": output, "resumed_from": req.conversation_id},
+        )
+        self.history_store.save_session(url, workspot=workspot.name, label=label)
+        return {"status": "ok", "session": updated.model_dump(mode="json"), "url": url, "resumed": True, "workspot": workspot.name}
+
     async def kill_session(self, session_id: str) -> dict:
         session = self.registry.get_session(session_id)
         if not session:
@@ -281,6 +399,12 @@ class SessionManager:
             return {"status": "error", "message": f"Unknown workspot '{session.workspot}'"}
 
         runtime = self._runtime(workspot)
+
+        # Handle PTY-spawned resume sessions
+        if session_id in self._pty_sessions:
+            pty_info = self._pty_sessions.pop(session_id)
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, cleanup_pty, pty_info)
 
         # Kill the actual claude remote-control process via session ID in cmdline
         kill_pattern = f'CLAUDE_LAUNCHER_SESSION_ID="{session_id}"'
@@ -345,6 +469,17 @@ class SessionManager:
                     updated += 1
 
             elif session.status == SessionStatus.running:
+                # Check PTY-spawned resume sessions by PID
+                if session.id in self._pty_sessions:
+                    pty_info = self._pty_sessions[session.id]
+                    try:
+                        os.waitpid(pty_info.child_pid, os.WNOHANG)
+                    except ChildProcessError:
+                        self._pty_sessions.pop(session.id, None)
+                        self.registry.mark_session(session.id, status=SessionStatus.stopped)
+                        updated += 1
+                    continue
+
                 workspot = self.resolve_workspot(session.workspot)
                 if not workspot:
                     continue
