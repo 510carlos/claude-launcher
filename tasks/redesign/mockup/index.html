@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=390, initial-scale=1.0">
+    <title>Workspace UI</title>
+    <style>
+        :root {
+            --bg-color: #0b111a;
+            --text-primary: #ffffff;
+            --text-secondary: #8c9baf;
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-bg-hover: rgba(255, 255, 255, 0.12);
+            --glass-bg-menu: rgba(255, 255, 255, 0.12);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-border-light: rgba(255, 255, 255, 0.22);
+            --blue-glow: rgba(59, 130, 246, 0.5);
+            --blue-accent: #3b82f6;
+            --green-glow: rgba(34, 197, 94, 0.3);
+            --green-text: #4ade80;
+            --red-glow: rgba(239, 68, 68, 0.2);
+            --red-text: #f87171;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --border-radius-lg: 16px;
+            --border-radius-md: 8px;
+            --border-radius-sm: 6px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            width: 390px;
+            min-height: 100vh;
+            margin: 0 auto;
+            position: relative;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 40px 16px 110px 16px;
+        }
+
+        /* Ambient Orbs */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .orb-top-right {
+            width: 350px;
+            height: 350px;
+            background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+            top: -80px;
+            right: -80px;
+            opacity: 0.6;
+            filter: blur(80px);
+        }
+
+        .orb-bottom-left {
+            width: 320px;
+            height: 320px;
+            background: linear-gradient(135deg, #2dd4bf, #8b5cf6);
+            bottom: 80px;
+            left: -100px;
+            opacity: 0.5;
+            filter: blur(80px);
+        }
+
+        /* Glassmorphism Base */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Machine Hero Tile */
+        .hero-tile {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 28px;
+            margin-bottom: 28px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero-title h1 {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-title p {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+
+        .status-ring-container {
+            position: relative;
+            width: 72px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            border-radius: 50%;
+            background: rgba(59, 130, 246, 0.1);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+        }
+
+        .status-ring-container svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .status-ring-container circle.bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.1);
+            stroke-width: 4;
+        }
+
+        .status-ring-container circle.progress {
+            fill: none;
+            stroke: #60a5fa;
+            stroke-width: 4;
+            stroke-dasharray: 100 100;
+            stroke-linecap: round;
+        }
+
+        .status-ring-container .count {
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .status-ring-container .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Workspaces Section */
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding-left: 4px;
+        }
+
+        .workspaces-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Workspace Cards */
+        .card {
+            padding: 22px;
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.04) 100%);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 4px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .card-title-group h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            letter-spacing: -0.3px;
+        }
+
+        .card-meta {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .badge {
+            font-size: 13px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .badge-ready {
+            color: var(--green-text);
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            box-shadow: 0 0 16px rgba(34, 197, 94, 0.35), 0 0 4px rgba(34, 197, 94, 0.2);
+        }
+
+        .badge-attention {
+            color: var(--red-text);
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.35), 0 0 4px rgba(239, 68, 68, 0.2);
+        }
+
+        .card-path {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--border-radius-sm);
+            padding: 8px 12px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            border-radius: 12px;
+            padding: 14px 16px;
+            min-height: 48px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-launch {
+            flex-grow: 1;
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn-launch.active-glow {
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.35), 0 0 4px rgba(59, 130, 246, 0.2), inset 0 -1px 0 rgba(0,0,0,0.2);
+        }
+
+        .btn-more {
+            width: 48px;
+            flex-shrink: 0;
+            padding: 0;
+        }
+
+        .btn-more svg {
+            fill: currentColor;
+        }
+        
+        .btn-more.active {
+            border-color: var(--blue-accent);
+        }
+
+        /* Expanded Menu */
+        .expanded-menu {
+            margin-top: 16px;
+            background: var(--glass-bg-menu);
+            border-radius: var(--border-radius-md);
+            border: 1px solid var(--glass-border-light);
+            overflow: hidden;
+        }
+
+        .menu-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            min-height: 48px;
+            font-size: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+        
+        .menu-item svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--text-primary);
+            fill: none;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        /* ExxCom Card (Needs Attention) */
+        .card-error {
+            border-color: rgba(239, 68, 68, 0.3);
+            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(239, 68, 68, 0.05) 100%);
+        }
+        
+        .card-error::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.5), transparent);
+        }
+
+        .error-text {
+            color: var(--red-text);
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        .card-error .card-header {
+            align-items: center;
+        }
+        
+        .card-error .card-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .card-error .card-title-group h2 {
+            margin-bottom: 0;
+        }
+        
+        .host-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Bottom Navigation Pill */
+        .bottom-nav {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 350px;
+            height: 68px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 8px;
+            border-radius: 32px;
+            z-index: 100;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            height: 100%;
+            text-decoration: none;
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: var(--text-primary);
+        }
+
+        .nav-item svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        
+        .nav-item.active svg {
+            stroke-width: 2;
+        }
+
+        .active-dot {
+            position: absolute;
+            bottom: 6px;
+            width: 4px;
+            height: 4px;
+            background-color: var(--blue-accent);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--blue-accent);
+        }
+        
+        /* Utility */
+        .flex-half {
+            flex: 1;
+        }
+
+        /* ======= ANIMATIONS ======= */
+
+        /* 1. Background orb drift */
+        .orb-top-right {
+            animation: orb-drift-1 18s ease-in-out infinite alternate;
+        }
+        .orb-bottom-left {
+            animation: orb-drift-2 22s ease-in-out infinite alternate;
+        }
+        @keyframes orb-drift-1 {
+            0%   { transform: translate(0, 0); }
+            50%  { transform: translate(-25px, 20px); }
+            100% { transform: translate(15px, -15px); }
+        }
+        @keyframes orb-drift-2 {
+            0%   { transform: translate(0, 0); }
+            50%  { transform: translate(20px, -25px); }
+            100% { transform: translate(-10px, 15px); }
+        }
+
+        /* 2. Open-in-Claude button pulse glow */
+        .btn-open-claude {
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
+            border-color: rgba(34, 197, 94, 0.5);
+            color: #86efac;
+            font-size: 16px;
+            font-weight: 700;
+            min-height: 52px;
+            animation: pulse-green 2.5s ease-in-out infinite;
+        }
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.3), 0 0 4px rgba(34, 197, 94, 0.15); }
+            50%      { box-shadow: 0 0 24px rgba(34, 197, 94, 0.5), 0 0 8px rgba(34, 197, 94, 0.3); }
+        }
+
+        /* 3. Menu expand/collapse with stagger */
+        .expanded-menu {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease;
+            margin-top: 0;
+        }
+        .expanded-menu.open {
+            max-height: 200px;
+            opacity: 1;
+            margin-top: 16px;
+        }
+        .menu-item {
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .expanded-menu.open .menu-item:nth-child(1) { opacity: 1; transform: translateY(0); transition-delay: 0.05s; }
+        .expanded-menu.open .menu-item:nth-child(2) { opacity: 1; transform: translateY(0); transition-delay: 0.1s; }
+        .expanded-menu.open .menu-item:nth-child(3) { opacity: 1; transform: translateY(0); transition-delay: 0.15s; }
+
+        /* 4. Card border color transitions */
+        .glass-panel.card {
+            transition: border-color 0.4s ease, box-shadow 0.4s ease;
+        }
+        .card.card--pending {
+            border-color: rgba(245, 158, 11, 0.4);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(245, 158, 11, 0.15), 0 4px 24px rgba(0,0,0,0.25);
+        }
+        .card.card--running {
+            border-color: rgba(34, 197, 94, 0.4);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(34, 197, 94, 0.15), 0 4px 24px rgba(0,0,0,0.25);
+        }
+        /* Green border flash on transition to running */
+        @keyframes border-flash-green {
+            0%   { box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(34, 197, 94, 0.15), 0 4px 24px rgba(0,0,0,0.25); }
+            30%  { box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(34, 197, 94, 0.4), 0 4px 24px rgba(0,0,0,0.25); }
+            100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 0 20px rgba(34, 197, 94, 0.15), 0 4px 24px rgba(0,0,0,0.25); }
+        }
+        .card.card--running.flash {
+            animation: border-flash-green 0.8s ease-out;
+        }
+
+        /* 5. Status ring fill animation */
+        .status-ring-container circle.progress {
+            transition: stroke-dashoffset 0.8s ease-out, stroke 0.4s ease;
+        }
+        .status-ring-container.active circle.progress {
+            stroke: #22c55e;
+            stroke-dashoffset: 35;
+        }
+        .status-ring-container .count {
+            transition: transform 0.3s ease;
+        }
+        .status-ring-container.active .count {
+            animation: count-bump 0.4s ease;
+        }
+        @keyframes count-bump {
+            0%   { transform: scale(1); }
+            40%  { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        /* 6. Card content transitions (fade in/out sections) */
+        .card-body-section {
+            transition: opacity 0.3s ease, max-height 0.35s ease, margin 0.3s ease;
+            overflow: hidden;
+        }
+        .card-body-section.hidden {
+            opacity: 0;
+            max-height: 0;
+            margin: 0;
+        }
+
+        /* 7. Button press feedback */
+        .btn:active {
+            transform: scale(0.96);
+            transition: transform 0.1s ease;
+        }
+
+        /* 8. Bottom nav active dot slide */
+        .bottom-nav {
+            --dot-x: 0px;
+        }
+        .active-dot {
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-item svg {
+            transition: transform 0.2s ease, stroke-width 0.2s ease;
+        }
+        .nav-item.active svg {
+            transform: scale(1.1);
+        }
+
+        /* 9. Card appear animation (on page load) */
+        .card, .hero-tile {
+            animation: card-appear 0.5s ease-out backwards;
+        }
+        .hero-tile { animation-delay: 0.05s; }
+        .workspaces-container .card:nth-child(1) { animation-delay: 0.1s; }
+        .workspaces-container .card:nth-child(2) { animation-delay: 0.18s; }
+        .workspaces-container .card:nth-child(3) { animation-delay: 0.26s; }
+        @keyframes card-appear {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Bottom nav appear */
+        .bottom-nav {
+            animation: nav-appear 0.4s ease-out 0.35s backwards;
+        }
+        @keyframes nav-appear {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="orb orb-top-right"></div>
+    <div class="orb orb-bottom-left"></div>
+
+    <div class="glass-panel hero-tile">
+        <div class="hero-title">
+            <h1>Machine</h1>
+            <p>6 workspaces</p>
+        </div>
+        <div class="status-ring-container">
+            <svg viewBox="0 0 36 36">
+                <circle class="bg" cx="18" cy="18" r="16"></circle>
+                <circle class="progress" cx="18" cy="18" r="16" stroke-dashoffset="65"></circle>
+            </svg>
+            <span class="count">0</span>
+            <span class="label">active</span>
+        </div>
+    </div>
+
+    <div class="section-label">WORKSPACES</div>
+
+    <div class="workspaces-container">
+        <!-- Claude Launcher Card -->
+        <div class="glass-panel card">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>claude-launcher</h2>
+                    <div class="card-meta">main · Host</div>
+                </div>
+                <div class="badge badge-ready">Ready</div>
+            </div>
+            <div class="card-path">/home/carlos/git/claude-launcher</div>
+            <div class="card-actions">
+                <button class="btn btn-launch active-glow">Launch</button>
+                <button class="btn btn-more">
+                    <svg width="16" height="4" viewBox="0 0 16 4">
+                        <path d="M2 2a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Exxact Monorepo Card -->
+        <div class="glass-panel card">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>exxact-monorepo</h2>
+                    <div class="card-meta">q1-to-q2 · Host</div>
+                </div>
+                <div class="badge badge-ready">Ready</div>
+            </div>
+            <div class="card-path">/home/carlos/git/claude-launcher</div>
+            <div class="card-actions">
+                <button class="btn btn-launch active-glow">Launch</button>
+                <button class="btn btn-more active">
+                    <svg width="16" height="4" viewBox="0 0 16 4">
+                        <path d="M2 2a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="expanded-menu open">
+                <div class="menu-item">
+                    <span>Launch with options</span>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+                    </svg>
+                </div>
+                <div class="menu-item">
+                    <span>Resume conversation</span>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M12 7v5l4 2" />
+                    </svg>
+                </div>
+                <div class="menu-item">
+                    <span>Launch in container</span>
+                    <svg viewBox="0 0 24 24">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                        <line x1="12" y1="22.08" x2="12" y2="12" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- ExxCom Card -->
+        <div class="glass-panel card card-error">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>ExxCom</h2>
+                    <div class="badge badge-attention">Needs attention</div>
+                </div>
+                <div class="host-label">Host</div>
+            </div>
+            <div class="error-text">Container not running</div>
+            <div class="card-actions">
+                <button class="btn btn-launch active-glow flex-half">Fix</button>
+                <button class="btn btn-launch flex-half">Recheck</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo: Running state card (initially hidden, toggled by clicking Launch on card 1) -->
+    <style>
+        .demo-progress { padding: 12px; border-radius: 8px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.15); }
+        .demo-progress .step { font-size: 13px; padding: 4px 0; color: var(--text-secondary); }
+        .demo-progress .step.done { color: var(--green-text); }
+        .demo-progress .step.active { color: #fbbf24; font-weight: 600; }
+        .demo-bar { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.1); margin-top: 8px; }
+        .demo-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #f59e0b, #22c55e); transition: width 1s ease; }
+    </style>
+
+    <!-- Bottom Navigation -->
+    <div class="glass-panel bottom-nav">
+        <a href="#" class="nav-item active">
+            <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Workspaces
+            <div class="active-dot"></div>
+        </a>
+        <a href="#" class="nav-item">
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" />
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+            </svg>
+            Discover
+        </a>
+        <a href="#" class="nav-item">
+            <svg viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Updates
+        </a>
+    </div>
+
+    <script>
+    // Interactive demo: click buttons to see state transitions
+    document.querySelectorAll('.btn-more').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const card = btn.closest('.card');
+            const menu = card.querySelector('.expanded-menu');
+            if (!menu) return;
+            menu.classList.toggle('open');
+            btn.classList.toggle('active');
+        });
+    });
+
+    // Click Launch on card 1 to demo idle → pending → running transition
+    const card1 = document.querySelectorAll('.card')[0];
+    const launch1 = card1.querySelector('.btn-launch');
+    launch1.addEventListener('click', () => {
+        const path = card1.querySelector('.card-path');
+        const actions = card1.querySelector('.card-actions');
+        const badge = card1.querySelector('.badge');
+        const ring = document.querySelector('.status-ring-container');
+        const count = ring.querySelector('.count');
+
+        // Phase 1: Pending
+        card1.classList.add('card--pending');
+        badge.textContent = 'pending';
+        badge.className = 'badge badge-attention';
+        badge.style.boxShadow = '0 0 16px rgba(245, 158, 11, 0.35), 0 0 4px rgba(245, 158, 11, 0.2)';
+        badge.style.color = '#fbbf24';
+        badge.style.background = 'rgba(245, 158, 11, 0.15)';
+        badge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+        path.style.opacity = '0';
+        path.style.maxHeight = '0';
+        path.style.marginBottom = '0';
+        path.style.transition = 'all 0.3s ease';
+
+        actions.innerHTML = `
+            <div class="demo-progress" style="flex:1">
+                <div class="step done">✓ Connecting to workspace...</div>
+                <div class="step active">→ Starting Claude...</div>
+                <div class="step">3. Generating URL...</div>
+                <div class="demo-bar"><div class="demo-bar-fill" style="width:15%"></div></div>
+            </div>
+        `;
+        // Animate progress bar
+        setTimeout(() => {
+            actions.querySelector('.demo-bar-fill').style.width = '45%';
+        }, 100);
+
+        // Phase 2: Running (after 3 seconds)
+        setTimeout(() => {
+            card1.classList.remove('card--pending');
+            card1.classList.add('card--running', 'flash');
+            badge.textContent = 'running';
+            badge.className = 'badge badge-ready';
+            badge.style = '';
+
+            actions.innerHTML = `
+                <button class="btn btn-launch btn-open-claude" style="flex:1">Open in Claude</button>
+            `;
+
+            // Activate status ring
+            ring.classList.add('active');
+            count.textContent = '1';
+
+            // Remove flash after animation
+            setTimeout(() => card1.classList.remove('flash'), 800);
+        }, 3000);
+    });
+
+    // Button press feedback
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.addEventListener('mousedown', () => btn.style.transform = 'scale(0.96)');
+        btn.addEventListener('mouseup', () => btn.style.transform = '');
+        btn.addEventListener('mouseleave', () => btn.style.transform = '');
+    });
+    </script>
+
+</body>
+</html>
