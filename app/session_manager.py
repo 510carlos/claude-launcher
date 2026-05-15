@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import re
 import secrets
 import time
@@ -13,7 +12,6 @@ import logging
 
 from app.models import ResumeRequest, SessionRecord, SessionStatus, StartRequest, Workspot
 from app.registry import SessionHistoryStore, SessionRegistry
-from app.resume import PtySession, blocking_pty_resume, cleanup_pty
 from app.runtime import RuntimeManager
 from app.server_manager import ServerManager
 
@@ -39,7 +37,6 @@ class SessionManager:
         self.runtime_manager = runtime_manager
         self.server_manager = server_manager
         self._workspot_resolver = workspot_resolver
-        self._pty_sessions: dict[str, PtySession] = {}  # session_id -> PtySession for resumed sessions
 
     @staticmethod
     def _resolve_devcontainer_workspace(host_dir: str) -> str | None:
@@ -323,19 +320,55 @@ class SessionManager:
         self.history_store.save_session(url, workspot=workspot.name, label=label)
         return {"status": "ok", "session": updated.model_dump(mode="json"), "url": url, "reused": False, "workspot": workspot.name}
 
+    async def launch_resume(self, workspot: Workspot, session: SessionRecord, conversation_id: str) -> tuple[bool, str]:
+        runtime = self._runtime(workspot)
+
+        await self.ensure_workspace_trusted(workspot, session.working_dir or workspot.dir)
+        await self.ensure_auto_approve(workspot, session.working_dir or workspot.dir)
+
+        env_vars = {
+            "CLAUDE_LAUNCHER_SESSION_ID": session.id,
+            "CLAUDE_LAUNCHER_WORKSPOT": workspot.name,
+            "CLAUDE_LAUNCHER_LABEL": session.label,
+            "CLAUDE_LAUNCHER_BRANCH": session.branch or "",
+            "CLAUDE_LAUNCHER_OUTPUT_FILE": session.output_file or "",
+        }
+        env_prefix = " ".join(f'{key}="{value}"' for key, value in env_vars.items() if value is not None)
+        name_flag = f'--name "{session.label}"' if session.label else ""
+        flags = " ".join(
+            part
+            for part in [
+                self.config.claude_global_flags,
+                workspot.claude_bin,
+                "--resume", conversation_id,
+                "--remote-control",
+                "--fork-session",
+                name_flag,
+                self.config.claude_rc_flags,
+            ]
+            if part
+        ).strip()
+        command = f"{env_prefix} {flags} 2>&1 | tee {session.output_file}".strip()
+        result = await runtime.run_shell(workspot, command, cwd=session.working_dir, detached=True)
+
+        if result.returncode != 0:
+            err = result.stderr.strip()
+            if workspot.container and "No such container" in err:
+                return False, f"Container '{workspot.container}' not found."
+            return False, err or "Failed to start claude --resume"
+
+        await self.server_manager.ensure_server(workspot)
+        return True, ""
+
     async def resume_session(self, req: ResumeRequest) -> dict:
-        """Resume a previous Claude conversation via PTY + /remote-control."""
+        """Resume a previous Claude conversation via `claude --resume <id> --remote-control --fork-session`."""
         workspot = self.resolve_workspot(req.workspot)
         if not workspot:
             return {"status": "error", "message": f"Unknown workspot '{req.workspot}'"}
-        if workspot.runtime.value != "host":
-            return {"status": "error", "message": "Resume is only supported for host workspots"}
 
         issues = await self.server_manager.check_preflight(workspot)
         if issues:
             return {"status": "error", "message": "Pre-flight failed: " + "; ".join(issues)}
-
-        await self.ensure_workspace_trusted(workspot, workspot.dir)
 
         label = req.label or f"resume-{req.conversation_id[:8]}"
         session_id = secrets.token_urlsafe(8)
@@ -348,43 +381,31 @@ class SessionManager:
         )
         self.registry.upsert_session(record)
 
-        # Build environment for the child process
-        import os as _os
-        env = {**_os.environ, **workspot.env, "CLAUDE_LAUNCHER_SESSION_ID": session_id}
+        ok, err = await self.launch_resume(workspot, record, req.conversation_id)
+        if not ok:
+            self.registry.mark_session(session_id, status=SessionStatus.failed, metadata={"error": err, "resumed_from": req.conversation_id})
+            return {"status": "error", "message": err}
 
-        loop = asyncio.get_event_loop()
-        pty_session, url, output = await loop.run_in_executor(
-            None,
-            blocking_pty_resume,
-            workspot.claude_bin,
-            req.conversation_id,
-            workspot.dir,
-            env,
-            float(self.config.url_capture_timeout),
-        )
-
-        if not url or not pty_session:
-            is_error = any(p in output.lower() for p in ERROR_PATTERNS)
+        url, last_output = await self.poll_for_url(workspot, record.output_file or "")
+        if not url:
+            is_error = any(p in last_output.lower() for p in ERROR_PATTERNS)
             new_status = SessionStatus.failed if is_error else SessionStatus.pending
-            error_msg = output.strip().split("\n")[-1] if is_error and output.strip() else None
-            self.registry.mark_session(session_id, status=new_status, metadata={"last_output": output, "error": error_msg})
+            error_msg = last_output.strip().split("\n")[-1] if is_error else None
+            self.registry.mark_session(session_id, status=new_status, metadata={"last_output": last_output, "error": error_msg, "resumed_from": req.conversation_id})
             if is_error:
                 return {"status": "error", "message": f"Resume failed: {error_msg}", "session_id": session_id}
             return {
                 "status": "ok",
                 "session": self.registry.get_session(session_id).model_dump(mode="json"),
                 "pending_url": True,
-                "message": "Resume started but URL not yet captured.",
+                "message": "Resume started. Waiting for URL callback or output capture.",
             }
-
-        # Store PTY info for lifecycle management (kill)
-        self._pty_sessions[session_id] = pty_session
 
         updated = self.registry.mark_session(
             session_id,
             status=SessionStatus.running,
             url=url,
-            metadata={"last_output": output, "resumed_from": req.conversation_id},
+            metadata={"last_output": last_output, "resumed_from": req.conversation_id},
         )
         self.history_store.save_session(url, workspot=workspot.name, label=label)
         return {"status": "ok", "session": updated.model_dump(mode="json"), "url": url, "resumed": True, "workspot": workspot.name}
@@ -398,12 +419,6 @@ class SessionManager:
             return {"status": "error", "message": f"Unknown workspot '{session.workspot}'"}
 
         runtime = self._runtime(workspot)
-
-        # Handle PTY-spawned resume sessions
-        if session_id in self._pty_sessions:
-            pty_info = self._pty_sessions.pop(session_id)
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, cleanup_pty, pty_info)
 
         # Kill the actual claude remote-control process via session ID in cmdline
         kill_pattern = f'CLAUDE_LAUNCHER_SESSION_ID="{session_id}"'
@@ -468,17 +483,6 @@ class SessionManager:
                     updated += 1
 
             elif session.status == SessionStatus.running:
-                # Check PTY-spawned resume sessions by PID
-                if session.id in self._pty_sessions:
-                    pty_info = self._pty_sessions[session.id]
-                    try:
-                        os.waitpid(pty_info.child_pid, os.WNOHANG)
-                    except ChildProcessError:
-                        self._pty_sessions.pop(session.id, None)
-                        self.registry.mark_session(session.id, status=SessionStatus.stopped)
-                        updated += 1
-                    continue
-
                 workspot = self.resolve_workspot(session.workspot)
                 if not workspot:
                     continue
