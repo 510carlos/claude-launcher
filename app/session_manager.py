@@ -78,9 +78,9 @@ class SessionManager:
             parts.append("Dev")
         return " · ".join(parts)
 
-    async def poll_for_url(self, workspot: Workspot, output_file: str) -> tuple[str | None, str]:
+    async def poll_for_url(self, workspot: Workspot, output_file: str, *, timeout: float | None = None) -> tuple[str | None, str]:
         runtime = self._runtime(workspot)
-        deadline = time.monotonic() + self.config.url_capture_timeout
+        deadline = time.monotonic() + (timeout if timeout is not None else self.config.url_capture_timeout)
         last_output = ""
         while time.monotonic() < deadline:
             await asyncio.sleep(0.5)
@@ -91,6 +91,30 @@ class SessionManager:
                 if match:
                     return match.group(0), last_output
         return None, last_output
+
+    async def _transcript_size_mb(self, workspot: Workspot, working_dir: str, conversation_id: str) -> float | None:
+        """Best-effort size (MB) of a conversation transcript on the runtime, used to scale the resume timeout.
+
+        Returns None if the file can't be found/stat'd; callers fall back to the base timeout.
+        """
+        slug = "-" + working_dir.lstrip("/").replace("/", "-")
+        path = f"$HOME/.claude/projects/{slug}/{conversation_id}.jsonl"
+        runtime = self._runtime(workspot)
+        result = await runtime.run_shell(workspot, f'stat -c %s "{path}" 2>/dev/null')
+        if result.returncode != 0:
+            return None
+        try:
+            return int(result.stdout.strip()) / (1024 * 1024)
+        except (ValueError, TypeError):
+            return None
+
+    def _resume_timeout(self, size_mb: float | None) -> int:
+        """Scale the URL-capture timeout to transcript size: forking a large transcript is slow."""
+        base = self.config.resume_url_capture_base
+        if size_mb is None:
+            return base
+        scaled = base + self.config.resume_url_capture_per_mb * size_mb
+        return int(min(self.config.resume_url_capture_max, max(base, scaled)))
 
     async def ensure_workspace_trusted(self, workspot: Workspot, directory: str) -> None:
         """Ensure the workspace directory is trusted in ~/.claude.json so remote-control doesn't prompt."""
@@ -386,7 +410,10 @@ class SessionManager:
             self.registry.mark_session(session_id, status=SessionStatus.failed, metadata={"error": err, "resumed_from": req.conversation_id})
             return {"status": "error", "message": err}
 
-        url, last_output = await self.poll_for_url(workspot, record.output_file or "")
+        size_mb = await self._transcript_size_mb(workspot, record.working_dir or workspot.dir, req.conversation_id)
+        resume_timeout = self._resume_timeout(size_mb)
+        log.info("Resuming %s: transcript=%.1fMB, url-capture timeout=%ds", req.conversation_id, size_mb or 0.0, resume_timeout)
+        url, last_output = await self.poll_for_url(workspot, record.output_file or "", timeout=resume_timeout)
         if not url:
             is_error = any(p in last_output.lower() for p in ERROR_PATTERNS)
             new_status = SessionStatus.failed if is_error else SessionStatus.pending
@@ -476,8 +503,13 @@ class SessionManager:
                     self.registry.mark_session(session.id, status=SessionStatus.running, url=match.group(0))
                     updated += 1
                     continue
-                # Check for errors → mark failed
+                # Check for errors → mark failed, but only once the process is actually gone.
+                # A long resume fork can emit error-like text mid-stream while still working;
+                # failing it while claude is alive would abort a healthy (slow) resume.
                 if any(p in output.lower() for p in ERROR_PATTERNS):
+                    proc_check = await runtime.run_shell(workspot, f"pgrep -f 'CLAUDE_LAUNCHER_SESSION_ID=\"{session.id}\"'")
+                    if proc_check.returncode == 0:
+                        continue  # still running — leave pending, give it time
                     error_msg = output.strip().split("\n")[-1]
                     self.registry.mark_session(session.id, status=SessionStatus.failed, metadata={"error": error_msg})
                     updated += 1
