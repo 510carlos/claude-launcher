@@ -230,7 +230,10 @@ class SessionManager:
         }
         env_prefix = " ".join(f'{key}="{value}"' for key, value in env_vars.items() if value is not None)
         name_flag = f'--name "{session.label}"' if session.label else ""
-        spawn_flag = "--spawn worktree" if spawn_worktree else ""
+        # Always pass an explicit spawn mode. With a TTY (e.g. running inside tmux)
+        # remote-control otherwise prompts "[1/2] same-dir/worktree" and blocks
+        # waiting for input — so the URL is never emitted. same-dir is the default.
+        spawn_flag = "--spawn worktree" if spawn_worktree else "--spawn same-dir"
         capacity_flag = f"--capacity {workspot.server_capacity}" if workspot.server_capacity != 32 else ""
         flags = " ".join(
             part
