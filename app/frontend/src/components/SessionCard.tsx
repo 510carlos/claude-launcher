@@ -16,6 +16,15 @@ export function SessionCard({ session: s, showDelete = false }: Props) {
 
   const identity = sessionIdentity(s.workspot, s.branch);
   const time = fmtTime(s.created_at);
+  const attachCommand = typeof s.metadata?.attach_command === 'string' ? s.metadata.attach_command : null;
+
+  async function copyAttach() {
+    if (!attachCommand) return;
+    try {
+      await navigator.clipboard.writeText(attachCommand);
+      showNotice('Attach command copied.');
+    } catch { showNotice('Copy failed.', 'error'); }
+  }
 
   async function handleDelete() {
     sessions.value = sessions.value.filter(x => x.id !== s.id);
@@ -49,10 +58,17 @@ export function SessionCard({ session: s, showDelete = false }: Props) {
 
       <div class="actions">
         <button class="btn btn-ghost btn-sm" onClick={toggleOutput}>Output</button>
+        {attachCommand && (
+          <button class="btn btn-ghost btn-sm" onClick={copyAttach}>Copy attach</button>
+        )}
         {showDelete && (
           <button class="btn btn-danger btn-sm" onClick={handleDelete}>Delete</button>
         )}
       </div>
+
+      {attachCommand && (
+        <div class="card-meta" style="margin-top:6px;font-family:monospace;word-break:break-all;opacity:0.8">{attachCommand}</div>
+      )}
 
       {outputOpen && (
         <div class="output-box open">{outputText}</div>

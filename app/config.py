@@ -36,6 +36,8 @@ class AppConfig:
     discovery_scan_dirs: list[str]
     discovery_docker_enabled: bool
     discovery_local_enabled: bool
+    tmux_host: bool
+    tmux_ssh_host: str
 
     def get_workspot(self, name: str) -> Workspot | None:
         return next((workspot for workspot in self.workspots if workspot.name == name), None)
@@ -108,4 +110,10 @@ def load_config() -> AppConfig:
         discovery_scan_dirs=scan_dirs,
         discovery_docker_enabled=os.getenv("DISCOVERY_DOCKER_ENABLED", "true").lower() == "true",
         discovery_local_enabled=os.getenv("DISCOVERY_LOCAL_ENABLED", "true").lower() == "true",
+        # Host-runtime sessions run inside tmux so they expose an attachable
+        # terminal (desktop SSH + `tmux attach`) alongside the remote-control URL.
+        tmux_host=os.getenv("TMUX_HOST", "false").lower() == "true",
+        # Host to put in the surfaced attach command (`ssh <host> -t tmux attach ...`).
+        # Empty → a bare `tmux attach` (attach from a shell already on the host).
+        tmux_ssh_host=os.getenv("TMUX_SSH_HOST", ""),
     )

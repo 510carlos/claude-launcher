@@ -4,13 +4,14 @@ import asyncio
 import json
 import re
 import secrets
+import shlex
 import time
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 import logging
 
-from app.models import ResumeRequest, SessionRecord, SessionStatus, StartRequest, Workspot
+from app.models import ResumeRequest, RuntimeType, SessionRecord, SessionStatus, StartRequest, Workspot
 from app.registry import SessionHistoryStore, SessionRegistry
 from app.runtime import RuntimeManager
 from app.server_manager import ServerManager
@@ -64,6 +65,31 @@ class SessionManager:
     def output_file(self, session_id: str) -> str:
         return f"/tmp/claude-rc-session-{session_id}.txt"
 
+    def _use_tmux(self, workspot: Workspot) -> bool:
+        """tmux hosting applies only to host-runtime workspots, when enabled."""
+        return self.config.tmux_host and workspot.runtime == RuntimeType.host
+
+    @staticmethod
+    def _tmux_name(session_id: str) -> str:
+        return f"claunch-{session_id}"
+
+    def _attach_command(self, tmux_name: str) -> str:
+        """The copy-able command the UI shows for reattaching from a desktop terminal."""
+        if self.config.tmux_ssh_host:
+            return f"ssh {self.config.tmux_ssh_host} -t tmux attach -t {tmux_name}"
+        return f"tmux attach -t {tmux_name}"
+
+    async def _capture_output(self, workspot: Workspot, *, output_file: str | None, tmux_session: str | None) -> str:
+        """Read a session's current output — from the tmux pane if hosted there, else the tee'd file."""
+        runtime = self._runtime(workspot)
+        if tmux_session:
+            result = await runtime.run_shell(workspot, f"tmux capture-pane -t {tmux_session} -p -S -500 2>/dev/null")
+        elif output_file:
+            result = await runtime.run_shell(workspot, f"test -f {output_file} && cat {output_file}")
+        else:
+            return ""
+        return result.stdout if result.returncode == 0 else ""
+
     def derive_label(self, workspot: Workspot, *, label: str | None = None, branch: str | None = None, directory: str | None = None) -> str:
         if label:
             return label
@@ -78,16 +104,15 @@ class SessionManager:
             parts.append("Dev")
         return " · ".join(parts)
 
-    async def poll_for_url(self, workspot: Workspot, output_file: str, *, timeout: float | None = None) -> tuple[str | None, str]:
-        runtime = self._runtime(workspot)
+    async def poll_for_url(self, workspot: Workspot, output_file: str, *, timeout: float | None = None, tmux_session: str | None = None) -> tuple[str | None, str]:
         deadline = time.monotonic() + (timeout if timeout is not None else self.config.url_capture_timeout)
         last_output = ""
         while time.monotonic() < deadline:
             await asyncio.sleep(0.5)
-            result = await runtime.run_shell(workspot, f"test -f {output_file} && cat {output_file}")
-            if result.returncode == 0:
-                last_output = result.stdout.strip()
-                match = re.search(r"https://claude\.ai/code\S+", result.stdout)
+            output = await self._capture_output(workspot, output_file=output_file, tmux_session=tmux_session)
+            if output:
+                last_output = output.strip()
+                match = re.search(r"https://claude\.ai/code\S+", output)
                 if match:
                     return match.group(0), last_output
         return None, last_output
@@ -212,8 +237,18 @@ class SessionManager:
             for part in [self.config.claude_global_flags, workspot.claude_bin, "remote-control", name_flag, spawn_flag, capacity_flag, self.config.claude_rc_flags]
             if part
         ).strip()
-        command = f"{env_prefix} {flags} 2>&1 | tee {session.output_file}".strip()
-        result = await runtime.run_shell(workspot, command, cwd=session.working_dir, detached=True)
+        tmux_session = session.metadata.get("tmux_session")
+        if tmux_session:
+            # Run claude directly on the tmux PTY (no tee pipe — that would divert
+            # stdout off the terminal and break the attachable TUI). Output is read
+            # back via `tmux capture-pane`.
+            inner = f"{env_prefix} {flags}".strip()
+            cwd = session.working_dir or workspot.dir
+            command = f"tmux new-session -d -s {tmux_session} -c {shlex.quote(cwd)} {shlex.quote(inner)}"
+            result = await runtime.run_shell(workspot, command)
+        else:
+            command = f"{env_prefix} {flags} 2>&1 | tee {session.output_file}".strip()
+            result = await runtime.run_shell(workspot, command, cwd=session.working_dir, detached=True)
 
         if result.returncode != 0:
             err = result.stderr.strip()
@@ -236,6 +271,11 @@ class SessionManager:
         source: str = "launcher",
     ) -> SessionRecord:
         now = datetime.now(timezone.utc)
+        metadata: dict = {}
+        if self._use_tmux(workspot):
+            tmux_name = self._tmux_name(session_id)
+            metadata["tmux_session"] = tmux_name
+            metadata["attach_command"] = self._attach_command(tmux_name)
         return SessionRecord(
             id=session_id,
             workspot=workspot.name,
@@ -253,6 +293,7 @@ class SessionManager:
             source=source,
             server_session_name=label,
             output_file=self.output_file(session_id),
+            metadata=metadata,
         )
 
     async def create_session(self, req: StartRequest) -> dict:
@@ -319,7 +360,7 @@ class SessionManager:
             self.registry.mark_session(session_id, status=SessionStatus.failed, metadata={"error": err})
             return {"status": "error", "message": err}
 
-        url, last_output = await self.poll_for_url(workspot, record.output_file or "")
+        url, last_output = await self.poll_for_url(workspot, record.output_file or "", tmux_session=record.metadata.get("tmux_session"))
         if not url:
             # Check if the output contains errors — mark failed instead of pending
             is_error = any(p in last_output.lower() for p in ERROR_PATTERNS)
@@ -372,8 +413,15 @@ class SessionManager:
             ]
             if part
         ).strip()
-        command = f"{env_prefix} {flags} 2>&1 | tee {session.output_file}".strip()
-        result = await runtime.run_shell(workspot, command, cwd=session.working_dir, detached=True)
+        tmux_session = session.metadata.get("tmux_session")
+        if tmux_session:
+            inner = f"{env_prefix} {flags}".strip()
+            cwd = session.working_dir or workspot.dir
+            command = f"tmux new-session -d -s {tmux_session} -c {shlex.quote(cwd)} {shlex.quote(inner)}"
+            result = await runtime.run_shell(workspot, command)
+        else:
+            command = f"{env_prefix} {flags} 2>&1 | tee {session.output_file}".strip()
+            result = await runtime.run_shell(workspot, command, cwd=session.working_dir, detached=True)
 
         if result.returncode != 0:
             err = result.stderr.strip()
@@ -413,7 +461,7 @@ class SessionManager:
         size_mb = await self._transcript_size_mb(workspot, record.working_dir or workspot.dir, req.conversation_id)
         resume_timeout = self._resume_timeout(size_mb)
         log.info("Resuming %s: transcript=%.1fMB, url-capture timeout=%ds", req.conversation_id, size_mb or 0.0, resume_timeout)
-        url, last_output = await self.poll_for_url(workspot, record.output_file or "", timeout=resume_timeout)
+        url, last_output = await self.poll_for_url(workspot, record.output_file or "", timeout=resume_timeout, tmux_session=record.metadata.get("tmux_session"))
         if not url:
             is_error = any(p in last_output.lower() for p in ERROR_PATTERNS)
             new_status = SessionStatus.failed if is_error else SessionStatus.pending
@@ -455,6 +503,12 @@ class SessionManager:
         # Force kill any stragglers
         await runtime.run_shell(workspot, f"pgrep -f '{kill_pattern}' | xargs -r kill -9")
 
+        # Tear down the tmux session (usually already gone once claude exits, but
+        # kill it explicitly to clean up any leftover empty session).
+        tmux_session = session.metadata.get("tmux_session")
+        if tmux_session:
+            await runtime.run_shell(workspot, f"tmux kill-session -t {tmux_session} 2>/dev/null || true")
+
         if session.output_file:
             await runtime.run_shell(workspot, f"rm -f {session.output_file}")
         self.registry.mark_session(session_id, status=SessionStatus.stopped)
@@ -471,18 +525,18 @@ class SessionManager:
         session = self.registry.get_session(session_id)
         if not session:
             return {"status": "error", "message": f"Unknown session '{session_id}'"}
-        if not session.output_file:
+        tmux_session = session.metadata.get("tmux_session")
+        if not session.output_file and not tmux_session:
             return {"status": "ok", "output": "", "lines": 0}
         workspot = self.resolve_workspot(session.workspot)
         if not workspot:
             return {"status": "error", "message": f"Unknown workspot '{session.workspot}'"}
-        runtime = self._runtime(workspot)
-        result = await runtime.run_shell(workspot, f"tail -n {tail} {session.output_file} 2>/dev/null || echo ''")
-        raw = result.stdout if result.returncode == 0 else ""
+        raw = await self._capture_output(workspot, output_file=session.output_file, tmux_session=tmux_session)
         clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', raw)
         clean = re.sub(r'\x1b\]8;;[^\x07]*\x07', '', clean)  # strip hyperlink escapes
-        lines = clean.strip().split('\n') if clean.strip() else []
-        return {"status": "ok", "output": clean.strip(), "lines": len(lines)}
+        lines = [ln for ln in clean.strip().split('\n')] if clean.strip() else []
+        lines = lines[-tail:]
+        return {"status": "ok", "output": "\n".join(lines), "lines": len(lines)}
 
     async def reconcile_sessions(self) -> int:
         """Check pending/running sessions and update their status. Returns count of updates."""
@@ -493,10 +547,9 @@ class SessionManager:
                 if not workspot or not session.output_file:
                     continue
                 runtime = self._runtime(workspot)
-                result = await runtime.run_shell(workspot, f"cat {session.output_file} 2>/dev/null")
-                if result.returncode != 0 or not result.stdout.strip():
+                output = (await self._capture_output(workspot, output_file=session.output_file, tmux_session=session.metadata.get("tmux_session"))).strip()
+                if not output:
                     continue
-                output = result.stdout.strip()
                 # Check for URL → promote to running
                 match = re.search(r"https://claude\.ai/code\S+", output)
                 if match:
