@@ -111,13 +111,29 @@ class HostRuntimeAdapter:
         return CommandResult(proc.returncode, stdout.decode(), stderr.decode())
 
     async def run_shell(self, workspot: Workspot, command: str, *, cwd: Optional[str] = None, detached: bool = False) -> CommandResult:
+        if detached:
+            # Fully detach and return immediately. `setsid` puts the command in its
+            # own session/process group (so it survives this call and can be torn
+            # down as a group), and the trailing `&` makes the outer shell exit at
+            # once. The inner command handles its own output redirection (`| tee`).
+            # Without this we awaited communicate() on a `claude remote-control | tee`
+            # pipeline that never exits, so the launch request hung forever.
+            wrapped = f"setsid bash -lc {_shell_quote(command)} > /dev/null 2>&1 &"
+            proc = await asyncio.create_subprocess_exec(
+                "bash", "-lc", wrapped,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+                env=self._env(workspot),
+                cwd=cwd,
+            )
+            _, stderr = await proc.communicate()
+            return CommandResult(proc.returncode, "", stderr.decode())
         proc = await asyncio.create_subprocess_exec(
             "bash", "-lc", command,
-            stdout=asyncio.subprocess.DEVNULL if detached else asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=self._env(workspot),
             cwd=cwd,
-            start_new_session=detached,
         )
         stdout, stderr = await proc.communicate()
         return CommandResult(proc.returncode, (stdout or b"").decode(), stderr.decode())

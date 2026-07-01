@@ -18,7 +18,7 @@ from app.server_manager import ServerManager
 
 log = logging.getLogger(__name__)
 
-ERROR_PATTERNS = ["not trusted", "not authenticated", "no such container", "error:", "permission denied", "command not found"]
+ERROR_PATTERNS = ["not trusted", "not authenticated", "no such container", "error:", "permission denied", "command not found", "too old for remote control"]
 
 
 class SessionManager:
@@ -498,13 +498,29 @@ class SessionManager:
 
         runtime = self._runtime(workspot)
 
-        # Kill the actual claude remote-control process via session ID in cmdline
+        # Kill the session by process group. Only the launch wrapper carries
+        # CLAUDE_LAUNCHER_SESSION_ID in its argv; the `claude` child's argv is just
+        # `claude remote-control --name ...`, so a plain `pgrep | kill` matches the
+        # wrapper but orphans claude. Each launch runs under its own session/group
+        # (setsid / tmux pane), so signalling the wrapper's process group (kill -PGID)
+        # takes down claude and the tee too.
         kill_pattern = f'CLAUDE_LAUNCHER_SESSION_ID="{session_id}"'
-        await runtime.run_shell(workspot, f"pgrep -f '{kill_pattern}' | xargs -r kill")
-        # Give Claude time to clean up worktrees gracefully (SIGTERM)
+        # `pgrep -f` also matches this very kill command (the pattern is in its argv),
+        # and that self-match shell shares the launcher's own process group — so we
+        # must never group-kill our own group or we'd take down the service. The real
+        # session wrapper runs under its own group (setsid / tmux pane), so skipping
+        # $self_pgid kills the session while sparing the launcher and the matcher.
+        kill_group = (
+            f'self_pgid=$(ps -o pgid= -p $$ | tr -d " "); '
+            f"pgrep -f '{kill_pattern}' | while read pid; do "
+            f'pgid=$(ps -o pgid= -p "$pid" | tr -d " "); '
+            f'[ -n "$pgid" ] && [ "$pgid" != "$self_pgid" ] && kill -{{sig}} -"$pgid" 2>/dev/null; '
+            f"done"
+        )
+        # Graceful SIGTERM so Claude can clean up worktrees, then force-kill stragglers.
+        await runtime.run_shell(workspot, kill_group.format(sig="TERM"))
         await asyncio.sleep(2)
-        # Force kill any stragglers
-        await runtime.run_shell(workspot, f"pgrep -f '{kill_pattern}' | xargs -r kill -9")
+        await runtime.run_shell(workspot, kill_group.format(sig="KILL"))
 
         # Tear down the tmux session (usually already gone once claude exits, but
         # kill it explicitly to clean up any leftover empty session).
